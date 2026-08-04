@@ -3,7 +3,7 @@ name: Refresh lottery results
 on:
   schedule:
     - cron: '30 4 * * *'    # daily 06:30 CEST — catches next-day official quotas
-    - cron: '0 20 * * 3,6'  # Wed + Sat 22:00 CEST — right after the draws
+    - cron: '0 20 * * 2,3,5,6'  # Tue/Wed/Fri/Sat 22:00 CEST — right after the draws
   workflow_dispatch:
 
 permissions:

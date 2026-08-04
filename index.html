@@ -147,7 +147,17 @@ let state = load();
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
+    if (!w.results.ejdi) { w.results.ejdi = { nums:[], euros:[] }; changed = true; }
+  }
+  for (const w of state.weeks) {
     if (w.start !== '2026-08-03') continue;
+    // Eurojackpot Dienstag-Schein of 04.08. (Losnr 0560106, 4 Felder, €9.60)
+    if (!w.tickets.some(t => t.game === 'ej')) {
+      const E = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+      w.tickets.push(E('C', [8,32,42,44,48], [4,9]), E('C', [12,13,15,30,34], [5,9]),
+                     E('B', [8,24,34,38,39], [6,9]), E('B', [24,34,37,43,49], [2,10]));
+      w.stake = 64.95; changed = true;
+    }
     const solo = w.tickets.find(t => t.losnr === '3385680');
     if (!solo) {
       w.tickets.push({ id:uid(), game:'gs', player:'C', losnr:'3385680', share:1, s77:false, s6:false });
@@ -175,6 +185,7 @@ function uid() { return 't' + Math.random().toString(36).slice(2, 9); }
 function seed() {
   const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:0, draws:'mi', losnr:'', s77:false, s6:false });
   const G = (p, losnr) => ({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+  const E = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' }); // week-1 Schein was the Tuesday draw
   const tickets = [
     L('B', [3,5,12,19,20,48]), L('B', [9,13,19,31,35,39]),
     Object.assign(L('B', [10,13,22,34,42,45]), { losnr:'0569880', s77:true, s6:true }),
@@ -183,9 +194,11 @@ function seed() {
     L('C', [26,27,33,34,43,48]), L('C', [7,9,11,16,20,45]),
     G('C', '9678811'),
     { id:uid(), game:'gs', player:'C', losnr:'3385680', share:1, s77:false, s6:false },
+    E('C', [8,32,42,44,48], [4,9]), E('C', [12,13,15,30,34], [5,9]),
+    E('B', [8,24,34,38,39], [6,9]), E('B', [24,34,37,43,49], [2,10]),
   ];
-  return { version:1, weeks:[{ id:uid(), start:'2026-08-03', stake:55.35, tickets,
-    results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]} },
+  return { version:1, weeks:[{ id:uid(), start:'2026-08-03', stake:64.95, tickets,
+    results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
     overrides:{} }] };
 }
 
@@ -255,8 +268,9 @@ function ticketWins(week, t) {
       if (t.s6 && r.s6sa.length === 6) { const k = tailMatch(tail(t.losnr,6), r.s6sa); if (k) push('s6sa', 'Super 6 (' + k + ' Endz.)', QS6[k], (fq.s6sa || {})[k]); }
     }
   } else if (t.game === 'ej') {
-    const c = classEJ(t, r.ej);
-    if (c) push('ej', 'GK ' + c + ' (' + LEJ[c] + ')', QEJ[c], (fq.ej || {})[c]);
+    const di = t.draws === 'di';
+    const c = classEJ(t, di ? (r.ejdi || { nums:[], euros:[] }) : r.ej);
+    if (c) push('ej', (di ? 'Di ' : 'Fr ') + 'GK ' + c + ' (' + LEJ[c] + ')', QEJ[c], ((di ? fq.ejdi : fq.ej) || {})[c]);
   }
   return wins;
 }
@@ -335,6 +349,7 @@ function ticketHTML(w, t) {
   else numsHTML = t.nums.length === 5 ? t.nums.join(' · ') + ' <span style="color:var(--muted)">EZ ' + (t.euros || []).join(' · ') + '</span>' : null;
   const extras = [];
   if (t.game === 'lotto') extras.push(t.draws === 'beide' ? 'Mi + Sa' : (t.draws === 'mi' ? 'Mittwoch' : 'Samstag'));
+  if (t.game === 'ej') extras.push(t.draws === 'di' ? 'Dienstag' : 'Freitag');
   if (t.game === 'gs' && t.share < 1) extras.push(t.share === 0.5 ? '½ Los' : '⅕ Los');
   if (t.s77) extras.push('Spiel 77');
   if (t.s6) extras.push('Super 6');
@@ -382,7 +397,10 @@ function resFormHTML(w) {
     h += '<div class="f-row"><label>GK 7 (2×)</label>' + inp('gs.k7a', r.gs.k7a, '7-stellig') + inp('gs.k7b', r.gs.k7b, '7-stellig') + '</div>';
   }
   if (has('ej')) {
-    h += '<h4>Eurojackpot</h4><div class="f-row"><label>5 + 2 EZ</label>' + inp('ej.nums', r.ej.nums.join(' '), '5 Zahlen') + inp('ej.euros', (r.ej.euros || []).join(' '), '2 EZ') + '</div>';
+    if (w.tickets.some(t => t.game === 'ej' && t.draws !== 'di'))
+      h += '<h4>Eurojackpot Freitag</h4><div class="f-row"><label>5 + 2 EZ</label>' + inp('ej.nums', r.ej.nums.join(' '), '5 Zahlen') + inp('ej.euros', (r.ej.euros || []).join(' '), '2 EZ') + '</div>';
+    if (w.tickets.some(t => t.game === 'ej' && t.draws === 'di'))
+      h += '<h4>Eurojackpot Dienstag</h4><div class="f-row"><label>5 + 2 EZ</label>' + inp('ejdi.nums', (r.ejdi ? r.ejdi.nums : []).join(' '), '5 Zahlen') + inp('ejdi.euros', ((r.ejdi && r.ejdi.euros) || []).join(' '), '2 EZ') + '</div>';
   }
   return h + '</div>';
 }
@@ -394,11 +412,13 @@ function setRes(wid, path, val) {
     if (val && !n) alert('Bitte genau 6 verschiedene Zahlen von 1–49 eingeben.');
   } else if (path === 'sa49.sz' || path === 'mi49.sz') {
     r[path.slice(0, 4)].sz = /^\d$/.test(val) ? Number(val) : null;
-  } else if (path === 'ej.nums') {
-    const n = parseNums(val, 5, 50); r.ej.nums = n || [];
+  } else if (path === 'ej.nums' || path === 'ejdi.nums') {
+    const k = path.split('.')[0]; r[k] = r[k] || { nums:[], euros:[] };
+    const n = parseNums(val, 5, 50); r[k].nums = n || [];
     if (val && !n) alert('Bitte genau 5 verschiedene Zahlen von 1–50 eingeben.');
-  } else if (path === 'ej.euros') {
-    const n = parseNums(val, 2, 12); r.ej.euros = n || [];
+  } else if (path === 'ej.euros' || path === 'ejdi.euros') {
+    const k = path.split('.')[0]; r[k] = r[k] || { nums:[], euros:[] };
+    const n = parseNums(val, 2, 12); r[k].euros = n || [];
     if (val && !n) alert('Bitte genau 2 verschiedene Eurozahlen von 1–12 eingeben.');
   } else if (path.startsWith('gs.')) {
     r.gs[path.slice(3)] = val.replace(/\D/g, '');
@@ -456,9 +476,10 @@ function renderTkFields() {
   } else {
     h += '<div class="d-field"><label>5 Zahlen (1–50)</label><input id="fNums" placeholder="z.B. 4 17 23 38 46" value="' + (t.nums || []).join(' ') + '"></div>';
     h += '<div class="d-field"><label>2 Eurozahlen (1–12)</label><input id="fEuros" placeholder="z.B. 3 9" value="' + (t.euros || []).join(' ') + '"></div>';
+    h += '<div class="d-field"><label>Ziehung</label><select id="fDraws"><option value="fr">Freitag</option><option value="di">Dienstag</option></select></div>';
   }
   document.getElementById('tkFields').innerHTML = h;
-  if (dlg.game === 'lotto' && t.draws) document.getElementById('fDraws').value = t.draws;
+  if ((dlg.game === 'lotto' || dlg.game === 'ej') && t.draws) document.getElementById('fDraws').value = t.draws;
   if (dlg.game === 'gs' && t.share) document.getElementById('fShare').value = String(t.share);
 }
 function saveTk() {
@@ -485,7 +506,7 @@ function saveTk() {
     const euros = val('fEuros') ? parseNums(val('fEuros'), 2, 12) : [];
     if (nums === null) { err.textContent = 'Bitte 5 verschiedene Zahlen von 1–50.'; return; }
     if (euros === null) { err.textContent = 'Bitte 2 verschiedene Eurozahlen von 1–12.'; return; }
-    Object.assign(t, { nums, euros });
+    Object.assign(t, { nums, euros, draws: val('fDraws') || 'fr' });
   }
   const idx = w.tickets.findIndex(x => x.id === t.id);
   if (idx >= 0) w.tickets[idx] = t; else w.tickets.push(t);
@@ -504,7 +525,7 @@ function newWeek() {
   if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return;
   const stake = Number((prompt('Einsatz in € (gesamt):', '50') || '0').replace(',', '.')) || 0;
   state.weeks.push({ id:uid(), start, stake, tickets:[],
-    results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]} },
+    results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
     overrides:{} });
   save();
 }
@@ -540,6 +561,7 @@ function weekDrawDates(w) {
     if (d.getDay() === 3) out.mi = iso;
     if (d.getDay() === 6) out.sa = iso;
     if (d.getDay() === 5) out.fr = iso;
+    if (d.getDay() === 2) out.di = iso;
   }
   return out;
 }
@@ -564,10 +586,16 @@ async function fetchResults(manual) {
       }
       const G = data.gs && data.gs[dd.sa];
       if (G) { Object.assign(r.gs, G); applied++; }
-      const E = data.ej && data.ej[dd.fr]; // duel plays the Friday Eurojackpot draw
+      const E = data.ej && data.ej[dd.fr];
       if (E) {
         r.ej.nums = E.nums; r.ej.euros = E.euros;
         w.fq = w.fq || {}; w.fq.ej = E.quotas;
+        applied++;
+      }
+      const ED = data.ej && data.ej[dd.di];
+      if (ED) {
+        r.ejdi = { nums: ED.nums, euros: ED.euros };
+        w.fq = w.fq || {}; w.fq.ejdi = ED.quotas;
         applied++;
       }
     }
