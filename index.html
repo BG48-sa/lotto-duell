@@ -637,8 +637,26 @@ async function fetchResults(manual) {
   }
 }
 
+// self-update: when a newer app version is published, clear caches and reload once
+const APP_VERSION = 2;
+async function checkUpdate() {
+  try {
+    const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
+    if (v > APP_VERSION && !sessionStorage.ludReloaded) {
+      sessionStorage.ludReloaded = '1';
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      location.reload();
+    }
+    if (v <= APP_VERSION) delete sessionStorage.ludReloaded;
+  } catch(e) {}
+}
+
 render();
 fetchResults(false);
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { fetchResults(false); checkUpdate(); } });
+setInterval(() => { fetchResults(false); checkUpdate(); }, 30 * 60 * 1000);
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
 </script>
 </body>

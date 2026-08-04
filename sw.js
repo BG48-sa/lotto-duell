@@ -1,4 +1,4 @@
-const CACHE = 'lotto-duell-v1';
+const CACHE = 'lotto-duell-v2';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -11,8 +11,10 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // navigations bypass the HTTP cache so a fresh shell always wins over Pages' max-age
+  const req = e.request.mode === 'navigate' ? new Request(e.request, { cache: 'no-store' }) : e.request;
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetch(req).then(r => {
       const copy = r.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return r;
