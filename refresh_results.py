@@ -141,7 +141,8 @@ def main():
         except Exception as e:
             print(f"{iso}: FAILED {e}")
 
-    data["updated"] = datetime.datetime.now().isoformat(timespec="minutes")
+    from zoneinfo import ZoneInfo
+    data["updated"] = datetime.datetime.now(ZoneInfo("Europe/Berlin")).isoformat(timespec="minutes")
     with open(OUT, "w") as f:
         json.dump(data, f)
     print(f"DONE: {fetched} new draws, {len(data['lotto'])} lotto / {len(data['gs'])} gs total -> {OUT}")

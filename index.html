@@ -279,9 +279,28 @@ function weekTotals(week) {
   for (const t of week.tickets) for (const w of ticketWins(week, t)) tot[t.player] += w.amount;
   return tot;
 }
-function resultsEntered(week) {
-  const r = week.results;
-  return r.sa49.nums.length === 6 || r.mi49.nums.length === 6 || !!r.gs.k1 || r.ej.nums.length === 5;
+function drawKeysFor(t) {
+  if (t.game === 'lotto') return t.draws === 'beide' ? ['mi49','sa49'] : [t.draws === 'mi' ? 'mi49' : 'sa49'];
+  if (t.game === 'gs') return ['gs'];
+  return [t.draws === 'di' ? 'ejdi' : 'ej'];
+}
+function drawPresent(w, key) {
+  const r = w.results;
+  if (key === 'mi49' || key === 'sa49') return r[key].nums.length === 6;
+  if (key === 'gs') return !!r.gs.k1;
+  if (key === 'ejdi') return !!(r.ejdi && r.ejdi.nums.length === 5);
+  return r.ej.nums.length === 5;
+}
+// 'none' | 'partial' | 'done' — relative to the draws this week's tickets actually need
+function weekStatus(w) {
+  const needed = new Set();
+  w.tickets.forEach(t => drawKeysFor(t).forEach(k => needed.add(k)));
+  if (!needed.size) return 'none';
+  const present = [...needed].filter(k => drawPresent(w, k)).length;
+  return present === 0 ? 'none' : (present === needed.size ? 'done' : 'partial');
+}
+function ticketDone(w, t) {
+  return drawKeysFor(t).every(k => drawPresent(w, k));
 }
 
 /* ---------- helpers ---------- */
@@ -307,7 +326,7 @@ function render() {
     stake += w.stake || 0;
     const t = weekTotals(w);
     totB.win += t.B; totC.win += t.C;
-    if (resultsEntered(w)) { if (t.B > t.C) totB.weeks++; else if (t.C > t.B) totC.weeks++; }
+    if (weekStatus(w) === 'done') { if (t.B > t.C) totB.weeks++; else if (t.C > t.B) totC.weeks++; }
   }
   const lead = totB.win === totC.win ? null : (totB.win > totC.win ? 'B' : 'C');
   document.getElementById('scoreboard').innerHTML =
@@ -325,23 +344,32 @@ function sideHTML(name, tot, leader, cls) {
     '<div class="duel-eur">' + eur(tot.win) + '</div><div class="duel-weeks">' + tot.weeks + ' Woche' + (tot.weeks === 1 ? '' : 'n') + ' gewonnen</div></div>';
 }
 function weekHTML(w) {
-  const t = weekTotals(w), done = resultsEntered(w);
+  const t = weekTotals(w), status = weekStatus(w);
   let winner = '<span class="badge n">Ergebnisse ausstehend</span>';
-  if (done) winner = t.B === t.C ? '<span class="badge n">Unentschieden (' + eur(t.B) + ')</span>'
+  if (status === 'partial') winner = '<span class="badge n">Zwischenstand — Bernd ' + eur(t.B) + ' : Claude ' + eur(t.C) + '</span>';
+  else if (status === 'done') winner = t.B === t.C ? '<span class="badge n">Unentschieden (' + eur(t.B) + ')</span>'
     : (t.B > t.C ? '<span class="badge b">🏆 Bernd — ' + eur(t.B) + ' : ' + eur(t.C) + '</span>'
                  : '<span class="badge c">🏆 Claude — ' + eur(t.C) + ' : ' + eur(t.B) + '</span>');
+  const r = w.results, drawn = [];
+  if (drawPresent(w, 'mi49')) drawn.push('Mi 6aus49: ' + r.mi49.nums.join(' ') + ' SZ ' + r.mi49.sz + (r.s77mi ? ' · S77 ' + r.s77mi : '') + (r.s6mi ? ' · S6 ' + r.s6mi : ''));
+  if (drawPresent(w, 'sa49')) drawn.push('Sa 6aus49: ' + r.sa49.nums.join(' ') + ' SZ ' + r.sa49.sz + (r.s77sa ? ' · S77 ' + r.s77sa : '') + (r.s6sa ? ' · S6 ' + r.s6sa : ''));
+  if (drawPresent(w, 'ejdi')) drawn.push('Di Eurojackpot: ' + r.ejdi.nums.join(' ') + ' EZ ' + r.ejdi.euros.join(' '));
+  if (drawPresent(w, 'ej')) drawn.push('Fr Eurojackpot: ' + r.ej.nums.join(' ') + ' EZ ' + r.ej.euros.join(' '));
+  if (drawPresent(w, 'gs')) drawn.push('GlücksSpirale: ' + [r.gs.k1, r.gs.k2, r.gs.k3, r.gs.k4, r.gs.k5, r.gs.k6a + '/' + r.gs.k6b, r.gs.k7a + (r.gs.k7b ? '/' + r.gs.k7b : '')].join(' · '));
+  const drawnHTML = drawn.length
+    ? '<div class="tk-sub" style="margin:0 0 10px">🎱 ' + drawn.map(esc).join('<br>🎱 ') + '</div>' : '';
   const order = { B:0, C:1 };
   const tks = w.tickets.slice().sort((a, b) => order[a.player] - order[b.player] || a.game.localeCompare(b.game))
     .map(tk => ticketHTML(w, tk)).join('');
   return '<div class="card"><div class="wk-head"><div class="wk-title">Spielwoche ab ' + fmtDate(w.start) + '</div>' +
     '<div class="wk-stake">Einsatz ' + eur(w.stake || 0) + '</div></div>' +
-    '<div class="wk-winner">' + winner + '</div>' + tks +
+    '<div class="wk-winner">' + winner + '</div>' + drawnHTML + tks +
     '<button class="btn" onclick="openTk(\'' + w.id + '\')">＋ Tipp hinzufügen</button>' +
     '<button class="res-toggle" onclick="toggleRes(\'' + w.id + '\')">' + (openRes[w.id] ? '▾' : '▸') + ' Ergebnisse eintragen</button>' +
     (openRes[w.id] ? resFormHTML(w) : '') + '</div>';
 }
 function ticketHTML(w, t) {
-  const wins = ticketWins(w, t), done = resultsEntered(w);
+  const wins = ticketWins(w, t), done = ticketDone(w, t);
   let numsHTML;
   if (t.game === 'lotto') numsHTML = t.nums.length === 6
     ? t.nums.join(' · ') + ' <span style="color:var(--muted)">SZ ' + (t.sz === null ? '–' : t.sz) + '</span>' : null;
