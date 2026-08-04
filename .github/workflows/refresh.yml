@@ -1,0 +1,32 @@
+name: Refresh lottery results
+
+on:
+  schedule:
+    - cron: '30 4 * * *'    # daily 06:30 CEST — catches next-day official quotas
+    - cron: '0 20 * * 3,6'  # Wed + Sat 22:00 CEST — right after the draws
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch results from cleverlotto.de
+        run: python3 refresh_results.py
+      - name: Commit if changed
+        run: |
+          git config user.name "BG48-sa"
+          git config user.email "202773581+BG48-sa@users.noreply.github.com"
+          if ! git diff --quiet results.json; then
+            git add results.json
+            git commit -m "Auto-refresh results $(date -u +%F)"
+            git push
+          else
+            echo "No changes."
+          fi

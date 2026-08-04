@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#151322">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Lotto-Duell — Bernd vs. Claude</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --bg:#0d0b15; --s1:#151322; --s2:#1d1a2e; --s3:#262239;
+  --accent:#fbbf24; --text:#f5f3ff; --muted:#7c78a0; --border:#282442;
+  --blue:#3B82F6; --gold:#F59E0B; --green:#4ade80; --red:#EF4444;
+}
+body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; min-height:100vh; padding-bottom:40px; max-width:480px; margin:0 auto; }
+.header { background:var(--s1); border-bottom:1px solid var(--border); padding:22px 18px 16px; }
+.header-sub { font-size:10px; letter-spacing:3px; color:var(--accent); font-weight:700; text-transform:uppercase; margin-bottom:3px; }
+.header-title { font-size:28px; font-weight:800; }
+.wrap { padding:16px; }
+.card { background:var(--s1); border:1px solid var(--border); border-radius:18px; padding:16px; margin-bottom:14px; }
+.card-lbl { font-size:10px; letter-spacing:2.5px; color:var(--accent); text-transform:uppercase; font-weight:700; margin-bottom:12px; }
+
+/* scoreboard */
+.duel { display:flex; align-items:center; gap:10px; }
+.duel-side { flex:1; text-align:center; padding:12px 6px; border-radius:14px; background:var(--s2); border:1px solid var(--border); }
+.duel-side.leader { border-color:var(--accent); box-shadow:0 0 14px rgba(251,191,36,.15); }
+.duel-name { font-size:13px; font-weight:800; margin-bottom:2px; }
+.duel-eur { font-size:22px; font-weight:800; }
+.duel-weeks { font-size:11px; color:var(--muted); margin-top:2px; }
+.duel-vs { font-size:12px; font-weight:800; color:var(--muted); }
+.tot-row { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:12px; }
+.tot-row b { color:var(--text); }
+
+/* weeks */
+.wk-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px; }
+.wk-title { font-size:15px; font-weight:800; }
+.wk-stake { font-size:12px; color:var(--muted); white-space:nowrap; }
+.wk-winner { font-size:12px; font-weight:700; margin-bottom:10px; }
+.badge { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:800; }
+.badge.b { background:rgba(59,130,246,.18); color:#7fb1ff; }
+.badge.c { background:rgba(245,158,11,.18); color:var(--accent); }
+.badge.n { background:var(--s3); color:var(--muted); }
+
+.tk { background:var(--s2); border:1px solid var(--border); border-radius:13px; padding:11px 12px; margin-bottom:8px; cursor:pointer; }
+.tk-top { display:flex; align-items:center; gap:8px; }
+.tk-game { font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--muted); flex:1; }
+.tk-nums { font-size:15px; font-weight:700; margin-top:5px; letter-spacing:1px; font-variant-numeric:tabular-nums; }
+.tk-nums.missing { color:var(--muted); font-weight:500; font-style:italic; font-size:13px; }
+.tk-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+.tk-win { margin-top:7px; font-size:13px; font-weight:700; color:var(--green); }
+.tk-win .approx { color:var(--muted); font-weight:500; font-size:11px; }
+.tk-lose { margin-top:7px; font-size:12px; color:var(--muted); }
+
+.btn { display:block; width:100%; padding:12px; border-radius:13px; border:1px dashed var(--border); background:none; color:var(--muted); font-size:14px; font-weight:600; cursor:pointer; margin-top:4px; }
+.btn:hover { color:var(--accent); border-color:var(--accent); }
+.btn.solid { background:var(--accent); color:#1a1405; border:none; font-weight:800; }
+.btn.ghost { border-style:solid; }
+.btn-row { display:flex; gap:8px; }
+.btn-row .btn { margin-top:0; }
+
+.res-toggle { font-size:13px; font-weight:700; color:var(--accent); background:none; border:none; cursor:pointer; padding:8px 0 2px; }
+.res-form { margin-top:8px; border-top:1px solid var(--border); padding-top:10px; }
+.res-form h4 { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin:10px 0 6px; }
+.f-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+.f-row label { font-size:12px; color:var(--muted); min-width:86px; }
+input, select { background:var(--s3); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:9px 10px; font-size:15px; width:100%; font-family:inherit; }
+input:focus, select:focus { outline:none; border-color:var(--accent); }
+input.short { max-width:70px; }
+
+dialog { background:var(--s1); color:var(--text); border:1px solid var(--border); border-radius:20px; padding:20px; width:calc(100vw - 40px); max-width:420px; margin:auto; }
+dialog::backdrop { background:rgba(0,0,0,.65); }
+dialog h3 { font-size:17px; margin-bottom:14px; }
+.d-field { margin-bottom:11px; }
+.d-field label { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
+.seg { display:flex; background:var(--s3); border-radius:11px; padding:3px; gap:3px; }
+.seg button { flex:1; padding:8px 4px; border:none; border-radius:9px; background:none; color:var(--muted); font-size:13px; font-weight:700; cursor:pointer; }
+.seg button.on { background:var(--accent); color:#1a1405; }
+.seg button.on.b { background:var(--blue); color:#fff; }
+.err { color:var(--red); font-size:12px; margin-top:6px; min-height:15px; }
+.footer { padding:6px 16px 30px; display:flex; gap:8px; }
+.footer .btn { font-size:12px; padding:9px; }
+.hint { font-size:11px; color:var(--muted); line-height:1.5; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-sub">Wöchentliches Duell</div>
+  <div class="header-title">🎰 Lotto-Duell</div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-lbl">Gesamtstand</div>
+    <div class="duel" id="scoreboard"></div>
+    <div class="tot-row" id="totals"></div>
+    <div class="tot-row" style="align-items:center"><span id="autoStatus"></span>
+      <button class="res-toggle" style="padding:0" onclick="fetchResults(true)">⟳ Ergebnisse laden</button></div>
+  </div>
+  <button class="btn solid" onclick="newWeek()">＋ Neue Spielwoche</button>
+  <div style="height:10px"></div>
+  <div id="weeks"></div>
+  <p class="hint">Ergebnisse und amtliche Quoten werden automatisch aus results.json geladen (Refresh-Skript holt sie von cleverlotto.de). Gewinnbeträge mit „~" sind Schätzwerte, solange die amtliche Quote noch fehlt — antippen zum manuellen Korrigieren. Glücksspirale: pro Los zählt nur die höchste Gewinnklasse; GK 7 wird mit 2,4 Mio € (10.000 €/Monat × 20 Jahre) gewertet.</p>
+</div>
+
+<div class="footer">
+  <button class="btn ghost" onclick="exportJSON()">Backup exportieren</button>
+  <button class="btn ghost" onclick="importJSON()">Backup importieren</button>
+</div>
+
+<dialog id="tkDialog">
+  <h3 id="tkDlgTitle">Tipp hinzufügen</h3>
+  <div class="d-field"><label>Spiel</label>
+    <div class="seg" id="segGame"></div></div>
+  <div class="d-field"><label>Spieler</label>
+    <div class="seg" id="segPlayer"></div></div>
+  <div id="tkFields"></div>
+  <div class="err" id="tkErr"></div>
+  <div class="btn-row">
+    <button class="btn ghost" onclick="closeTk()">Abbrechen</button>
+    <button class="btn ghost" id="tkDelete" style="color:var(--red)" onclick="deleteTk()">Löschen</button>
+    <button class="btn solid" onclick="saveTk()">Speichern</button>
+  </div>
+</dialog>
+
+<script>
+'use strict';
+const LS_KEY = 'lottoduell.v1';
+const GAME_NAMES = { lotto:'6aus49', gs:'Glücksspirale', ej:'Eurojackpot' };
+const PLAYERS = { B:'Bernd', C:'Claude' };
+
+/* ---------- prize tables: [amount, isEstimate] ---------- */
+const Q49 = {1:[10000000,true],2:[600000,true],3:[10000,true],4:[3500,true],5:[190,true],6:[42,true],7:[21,true],8:[11,true],9:[6,false]};
+const L49 = {1:'6 R. + SZ',2:'6 Richtige',3:'5 R. + SZ',4:'5 Richtige',5:'4 R. + SZ',6:'4 Richtige',7:'3 R. + SZ',8:'3 Richtige',9:'2 R. + SZ'};
+const QS77 = {7:[500000,true],6:[77777,false],5:[7777,false],4:[777,false],3:[77,false],2:[17,false],1:[5,false]};
+const QS6  = {6:[100000,false],5:[6666,false],4:[666,false],3:[66,false],2:[6,false],1:[2.5,false]};
+const QGS  = {1:[10,false],2:[25,false],3:[100,false],4:[1000,false],5:[10000,false],6:[100000,false],7:[2400000,false]};
+const QEJ  = {1:[15000000,true],2:[1200000,true],3:[120000,true],4:[4500,true],5:[300,true],6:[120,true],7:[110,true],8:[25,true],9:[19,true],10:[16,true],11:[10,true],12:[9,true]};
+const LEJ  = {1:'5 + 2 EZ',2:'5 + 1 EZ',3:'5 + 0 EZ',4:'4 + 2 EZ',5:'4 + 1 EZ',6:'3 + 2 EZ',7:'4 + 0 EZ',8:'2 + 2 EZ',9:'3 + 1 EZ',10:'3 + 0 EZ',11:'1 + 2 EZ',12:'2 + 1 EZ'};
+
+/* ---------- state ---------- */
+let state = load();
+// one-time corrections for week 1 per the Lotto24 receipts of 04.08.2026 (idempotent)
+(function migrate() {
+  let changed = false;
+  for (const w of state.weeks) {
+    if (w.start !== '2026-08-03') continue;
+    const solo = w.tickets.find(t => t.losnr === '3385680');
+    if (!solo) {
+      w.tickets.push({ id:uid(), game:'gs', player:'C', losnr:'3385680', share:1, s77:false, s6:false });
+      changed = true;
+    } else if (solo.s77 || solo.s6) {
+      solo.s77 = solo.s6 = false; changed = true; // separate Einzelauftrag without Zusatzlotterien
+    }
+    for (const t of w.tickets) if (t.game === 'lotto' && t.sz === null) { t.sz = 0; changed = true; }
+    // Wednesday Spiel 77 / Super 6 per the two 6aus49 receipts: Schein A (Losnr 3385680,
+    // Claude's fields + Bernd rows 1-2) -> Claude's R1; Schein B (Losnr 0569880) -> Bernd's R3
+    const cr1 = w.tickets.find(t => t.game === 'lotto' && t.nums.join() === '4,15,24,32,35,41');
+    if (cr1 && cr1.losnr !== '3385680') { Object.assign(cr1, { losnr:'3385680', s77:true, s6:true }); changed = true; }
+    const br3 = w.tickets.find(t => t.game === 'lotto' && t.nums.join() === '10,13,22,34,42,45');
+    if (br3 && br3.losnr !== '0569880') { Object.assign(br3, { losnr:'0569880', s77:true, s6:true }); changed = true; }
+  }
+  if (changed) localStorage.setItem(LS_KEY, JSON.stringify(state));
+})();
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && s.version === 1) return s; } catch(e) {}
+  return seed();
+}
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); render(); }
+function uid() { return 't' + Math.random().toString(36).slice(2, 9); }
+
+function seed() {
+  const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:0, draws:'mi', losnr:'', s77:false, s6:false });
+  const G = (p, losnr) => ({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+  const tickets = [
+    L('B', [3,5,12,19,20,48]), L('B', [9,13,19,31,35,39]),
+    Object.assign(L('B', [10,13,22,34,42,45]), { losnr:'0569880', s77:true, s6:true }),
+    G('B', '5319481'), G('B', '7591208'),
+    Object.assign(L('C', [4,15,24,32,35,41]), { losnr:'3385680', s77:true, s6:true }),
+    L('C', [26,27,33,34,43,48]), L('C', [7,9,11,16,20,45]),
+    G('C', '9678811'),
+    { id:uid(), game:'gs', player:'C', losnr:'3385680', share:1, s77:false, s6:false },
+  ];
+  return { version:1, weeks:[{ id:uid(), start:'2026-08-03', stake:55.35, tickets,
+    results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]} },
+    overrides:{} }] };
+}
+
+/* ---------- scoring ---------- */
+function tail(str, k) { return String(str).slice(-k); }
+function tailMatch(losnr, drawn) { // longest common suffix length
+  const a = String(losnr), b = String(drawn); let k = 0;
+  while (k < Math.min(a.length, b.length) && a[a.length-1-k] === b[b.length-1-k]) k++;
+  return k;
+}
+function class49(nums, sz, draw) {
+  if (!draw.nums || draw.nums.length !== 6 || !nums || nums.length !== 6) return null;
+  const hits = nums.filter(n => draw.nums.includes(n)).length;
+  const s = sz !== null && draw.sz !== null && Number(sz) === Number(draw.sz);
+  const map = {'6t':1,'6f':2,'5t':3,'5f':4,'4t':5,'4f':6,'3t':7,'3f':8,'2t':9};
+  return map[hits + (s ? 't' : 'f')] || null;
+}
+function classEJ(t, draw) {
+  if (!draw.nums || draw.nums.length !== 5 || !t.nums || t.nums.length !== 5) return null;
+  const n = t.nums.filter(x => draw.nums.includes(x)).length;
+  const e = (t.euros || []).filter(x => (draw.euros || []).includes(x)).length;
+  const map = {'5,2':1,'5,1':2,'5,0':3,'4,2':4,'4,1':5,'3,2':6,'4,0':7,'2,2':8,'3,1':9,'3,0':10,'1,2':11,'2,1':12};
+  return map[n + ',' + e] || null;
+}
+function gsClass(losnr, gs) {
+  if (!losnr || losnr.length !== 7) return null;
+  let best = null;
+  if (gs.k7a && tail(losnr,7) === gs.k7a) best = 7;
+  else if (gs.k7b && tail(losnr,7) === gs.k7b) best = 7;
+  else if (gs.k6a && tail(losnr,6) === gs.k6a) best = 6;
+  else if (gs.k6b && tail(losnr,6) === gs.k6b) best = 6;
+  else for (let k = 5; k >= 1; k--) { const w = gs['k'+k]; if (w && w.length === k && tail(losnr,k) === w) { best = k; break; } }
+  return best;
+}
+// returns [{key,label,amount,approx}] for one ticket
+function ticketWins(week, t) {
+  const r = week.results, wins = [], fq = week.fq || {};
+  const push = (key, label, base, fetched) => {
+    const ov = week.overrides && week.overrides[t.id + ':' + key];
+    if (ov !== undefined) wins.push({ key, label, amount: ov, approx: false });
+    else if (fetched !== undefined && fetched !== null) wins.push({ key, label, amount: fetched, approx: false });
+    else wins.push({ key, label, amount: base[0], approx: base[1] });
+  };
+  if (t.game === 'lotto') {
+    const draws = t.draws === 'beide' ? ['mi','sa'] : [t.draws];
+    for (const d of draws) {
+      const dr = d === 'mi' ? r.mi49 : r.sa49;
+      const q = fq[d === 'mi' ? 'mi49' : 'sa49'] || {}, q77 = fq['s77' + d] || {}, q6 = fq['s6' + d] || {};
+      const c = class49(t.nums, t.sz, dr);
+      if (c) push('49' + d, (d === 'mi' ? 'Mi ' : 'Sa ') + 'GK ' + c + ' (' + L49[c] + ')', Q49[c], q[c]);
+      if (t.losnr && t.losnr.length === 7) {
+        const s77 = d === 'mi' ? r.s77mi : r.s77sa, s6 = d === 'mi' ? r.s6mi : r.s6sa;
+        if (t.s77 && s77.length === 7) { const k = tailMatch(t.losnr, s77); if (k) push('s77' + d, 'Spiel 77 (' + k + ' Endz.)', QS77[k], q77[k]); }
+        if (t.s6 && s6.length === 6) { const k = tailMatch(tail(t.losnr,6), s6); if (k) push('s6' + d, 'Super 6 (' + k + ' Endz.)', QS6[k], q6[k]); }
+      }
+    }
+  } else if (t.game === 'gs') {
+    const c = gsClass(t.losnr, r.gs);
+    if (c) {
+      const base = QGS[c], share = t.share || 1;
+      const ov = week.overrides && week.overrides[t.id + ':gs'];
+      wins.push({ key:'gs', label:'GK ' + c + (c === 7 ? ' — Rente!' : ' (' + c + ' Endz.)') + (share < 1 ? ' × ' + (share === 0.5 ? '½' : '⅕') : ''),
+        amount: ov !== undefined ? ov : base[0] * share, approx: false });
+    }
+    if (t.losnr && t.losnr.length === 7) {
+      if (t.s77 && r.s77sa.length === 7) { const k = tailMatch(t.losnr, r.s77sa); if (k) push('s77sa', 'Spiel 77 (' + k + ' Endz.)', QS77[k], (fq.s77sa || {})[k]); }
+      if (t.s6 && r.s6sa.length === 6) { const k = tailMatch(tail(t.losnr,6), r.s6sa); if (k) push('s6sa', 'Super 6 (' + k + ' Endz.)', QS6[k], (fq.s6sa || {})[k]); }
+    }
+  } else if (t.game === 'ej') {
+    const c = classEJ(t, r.ej);
+    if (c) push('ej', 'GK ' + c + ' (' + LEJ[c] + ')', QEJ[c]);
+  }
+  return wins;
+}
+function weekTotals(week) {
+  const tot = { B:0, C:0 };
+  for (const t of week.tickets) for (const w of ticketWins(week, t)) tot[t.player] += w.amount;
+  return tot;
+}
+function resultsEntered(week) {
+  const r = week.results;
+  return r.sa49.nums.length === 6 || r.mi49.nums.length === 6 || !!r.gs.k1 || r.ej.nums.length === 5;
+}
+
+/* ---------- helpers ---------- */
+function eur(x) { return x.toLocaleString('de-DE', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
+function fmtDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()] + '. ' + d.toLocaleDateString('de-DE');
+}
+function parseNums(str, count, max) {
+  const nums = (str.match(/\d+/g) || []).map(Number);
+  if (nums.length !== count) return null;
+  if (nums.some(n => n < 1 || n > max)) return null;
+  if (new Set(nums).size !== count) return null;
+  return nums.sort((a, b) => a - b);
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- render ---------- */
+function render() {
+  const totB = { win:0, weeks:0 }, totC = { win:0, weeks:0 };
+  let stake = 0;
+  for (const w of state.weeks) {
+    stake += w.stake || 0;
+    const t = weekTotals(w);
+    totB.win += t.B; totC.win += t.C;
+    if (resultsEntered(w)) { if (t.B > t.C) totB.weeks++; else if (t.C > t.B) totC.weeks++; }
+  }
+  const lead = totB.win === totC.win ? null : (totB.win > totC.win ? 'B' : 'C');
+  document.getElementById('scoreboard').innerHTML =
+    sideHTML('Bernd', totB, lead === 'B', 'b') + '<div class="duel-vs">VS</div>' + sideHTML('Claude', totC, lead === 'C', 'c');
+  document.getElementById('totals').innerHTML =
+    '<span>Einsatz gesamt: <b>' + eur(stake) + '</b></span><span>Rückfluss: <b>' + eur(totB.win + totC.win) + '</b></span>';
+  const as = document.getElementById('autoStatus');
+  if (as) as.textContent = !autoInfo ? 'Ergebnisse: lade …'
+    : (autoInfo.error ? 'Ergebnisse: offline (manuelle Eingabe möglich)'
+    : 'Ergebnisse automatisch · Stand ' + String(autoInfo.updated).replace('T', ' ').slice(0, 16));
+  document.getElementById('weeks').innerHTML = state.weeks.slice().reverse().map(weekHTML).join('');
+}
+function sideHTML(name, tot, leader, cls) {
+  return '<div class="duel-side' + (leader ? ' leader' : '') + '"><div class="duel-name"><span class="badge ' + cls + '">' + name + '</span></div>' +
+    '<div class="duel-eur">' + eur(tot.win) + '</div><div class="duel-weeks">' + tot.weeks + ' Woche' + (tot.weeks === 1 ? '' : 'n') + ' gewonnen</div></div>';
+}
+function weekHTML(w) {
+  const t = weekTotals(w), done = resultsEntered(w);
+  let winner = '<span class="badge n">Ergebnisse ausstehend</span>';
+  if (done) winner = t.B === t.C ? '<span class="badge n">Unentschieden (' + eur(t.B) + ')</span>'
+    : (t.B > t.C ? '<span class="badge b">🏆 Bernd — ' + eur(t.B) + ' : ' + eur(t.C) + '</span>'
+                 : '<span class="badge c">🏆 Claude — ' + eur(t.C) + ' : ' + eur(t.B) + '</span>');
+  const order = { B:0, C:1 };
+  const tks = w.tickets.slice().sort((a, b) => order[a.player] - order[b.player] || a.game.localeCompare(b.game))
+    .map(tk => ticketHTML(w, tk)).join('');
+  return '<div class="card"><div class="wk-head"><div class="wk-title">Spielwoche ab ' + fmtDate(w.start) + '</div>' +
+    '<div class="wk-stake">Einsatz ' + eur(w.stake || 0) + '</div></div>' +
+    '<div class="wk-winner">' + winner + '</div>' + tks +
+    '<button class="btn" onclick="openTk(\'' + w.id + '\')">＋ Tipp hinzufügen</button>' +
+    '<button class="res-toggle" onclick="toggleRes(\'' + w.id + '\')">' + (openRes[w.id] ? '▾' : '▸') + ' Ergebnisse eintragen</button>' +
+    (openRes[w.id] ? resFormHTML(w) : '') + '</div>';
+}
+function ticketHTML(w, t) {
+  const wins = ticketWins(w, t), done = resultsEntered(w);
+  let numsHTML;
+  if (t.game === 'lotto') numsHTML = t.nums.length === 6
+    ? t.nums.join(' · ') + ' <span style="color:var(--muted)">SZ ' + (t.sz === null ? '–' : t.sz) + '</span>' : null;
+  else if (t.game === 'gs') numsHTML = t.losnr ? t.losnr.split('').join(' ') : null;
+  else numsHTML = t.nums.length === 5 ? t.nums.join(' · ') + ' <span style="color:var(--muted)">EZ ' + (t.euros || []).join(' · ') + '</span>' : null;
+  const extras = [];
+  if (t.game === 'lotto') extras.push(t.draws === 'beide' ? 'Mi + Sa' : (t.draws === 'mi' ? 'Mittwoch' : 'Samstag'));
+  if (t.game === 'gs' && t.share < 1) extras.push(t.share === 0.5 ? '½ Los' : '⅕ Los');
+  if (t.s77) extras.push('Spiel 77');
+  if (t.s6) extras.push('Super 6');
+  if ((t.game === 'lotto' || t.game === 'gs') && t.losnr) extras.push('Losnr. ' + t.losnr);
+  const winHTML = wins.length
+    ? wins.map(win => '<div class="tk-win" onclick="event.stopPropagation();editWin(\'' + w.id + '\',\'' + t.id + '\',\'' + win.key + '\')">✓ ' +
+        esc(win.label) + ' — ' + (win.approx ? '<span class="approx">~</span>' : '') + eur(win.amount) + '</div>').join('')
+    : (done && numsHTML ? '<div class="tk-lose">kein Gewinn</div>' : '');
+  return '<div class="tk" onclick="openTk(\'' + w.id + '\',\'' + t.id + '\')"><div class="tk-top">' +
+    '<span class="badge ' + t.player.toLowerCase() + '">' + PLAYERS[t.player] + '</span>' +
+    '<span class="tk-game">' + GAME_NAMES[t.game] + '</span></div>' +
+    (numsHTML ? '<div class="tk-nums">' + numsHTML + '</div>' : '<div class="tk-nums missing">Zahlen fehlen — antippen ✎</div>') +
+    (extras.length ? '<div class="tk-sub">' + esc(extras.join(' · ')) + '</div>' : '') + winHTML + '</div>';
+}
+
+/* ---------- results form ---------- */
+const openRes = {};
+function toggleRes(wid) { openRes[wid] = !openRes[wid]; render(); }
+function resFormHTML(w) {
+  const r = w.results, id = w.id;
+  const inp = (path, val, ph, short) =>
+    '<input ' + (short ? 'class="short" ' : '') + 'value="' + esc(val) + '" placeholder="' + ph + '" onchange="setRes(\'' + id + '\',\'' + path + '\',this.value)">';
+  const has = g => w.tickets.some(t => t.game === g);
+  const hasMi = w.tickets.some(t => t.game === 'lotto' && t.draws !== 'sa');
+  const hasS77 = w.tickets.some(t => t.s77), hasS6 = w.tickets.some(t => t.s6);
+  let h = '<div class="res-form">';
+  if (has('lotto')) {
+    h += '<h4>6aus49 Samstag</h4><div class="f-row"><label>Zahlen + SZ</label>' + inp('sa49.nums', r.sa49.nums.join(' '), '6 Zahlen') + inp('sa49.sz', r.sa49.sz ?? '', 'SZ', true) + '</div>';
+    if (hasMi) h += '<h4>6aus49 Mittwoch</h4><div class="f-row"><label>Zahlen + SZ</label>' + inp('mi49.nums', r.mi49.nums.join(' '), '6 Zahlen') + inp('mi49.sz', r.mi49.sz ?? '', 'SZ', true) + '</div>';
+  }
+  if (hasS77 || hasS6) {
+    h += '<h4>Zusatzlotterien Samstag</h4>';
+    if (hasS77) h += '<div class="f-row"><label>Spiel 77</label>' + inp('s77sa', r.s77sa, '7-stellig') + '</div>';
+    if (hasS6) h += '<div class="f-row"><label>Super 6</label>' + inp('s6sa', r.s6sa, '6-stellig') + '</div>';
+    if (hasMi) {
+      h += '<h4>Zusatzlotterien Mittwoch</h4>';
+      if (hasS77) h += '<div class="f-row"><label>Spiel 77</label>' + inp('s77mi', r.s77mi, '7-stellig') + '</div>';
+      if (hasS6) h += '<div class="f-row"><label>Super 6</label>' + inp('s6mi', r.s6mi, '6-stellig') + '</div>';
+    }
+  }
+  if (has('gs')) {
+    h += '<h4>Glücksspirale (Endziffern)</h4>';
+    for (let k = 1; k <= 5; k++) h += '<div class="f-row"><label>GK ' + k + ' (' + k + '-stellig)</label>' + inp('gs.k' + k, r.gs['k' + k], k + ' Ziffern') + '</div>';
+    h += '<div class="f-row"><label>GK 6 (2×)</label>' + inp('gs.k6a', r.gs.k6a, '6-stellig') + inp('gs.k6b', r.gs.k6b, '6-stellig') + '</div>';
+    h += '<div class="f-row"><label>GK 7 (2×)</label>' + inp('gs.k7a', r.gs.k7a, '7-stellig') + inp('gs.k7b', r.gs.k7b, '7-stellig') + '</div>';
+  }
+  if (has('ej')) {
+    h += '<h4>Eurojackpot</h4><div class="f-row"><label>5 + 2 EZ</label>' + inp('ej.nums', r.ej.nums.join(' '), '5 Zahlen') + inp('ej.euros', (r.ej.euros || []).join(' '), '2 EZ') + '</div>';
+  }
+  return h + '</div>';
+}
+function setRes(wid, path, val) {
+  const w = state.weeks.find(x => x.id === wid); if (!w) return;
+  const r = w.results; val = val.trim();
+  if (path === 'sa49.nums' || path === 'mi49.nums') {
+    const n = parseNums(val, 6, 49); r[path.slice(0, 4)].nums = n || [];
+    if (val && !n) alert('Bitte genau 6 verschiedene Zahlen von 1–49 eingeben.');
+  } else if (path === 'sa49.sz' || path === 'mi49.sz') {
+    r[path.slice(0, 4)].sz = /^\d$/.test(val) ? Number(val) : null;
+  } else if (path === 'ej.nums') {
+    const n = parseNums(val, 5, 50); r.ej.nums = n || [];
+    if (val && !n) alert('Bitte genau 5 verschiedene Zahlen von 1–50 eingeben.');
+  } else if (path === 'ej.euros') {
+    const n = parseNums(val, 2, 12); r.ej.euros = n || [];
+    if (val && !n) alert('Bitte genau 2 verschiedene Eurozahlen von 1–12 eingeben.');
+  } else if (path.startsWith('gs.')) {
+    r.gs[path.slice(3)] = val.replace(/\D/g, '');
+  } else {
+    r[path] = val.replace(/\D/g, '');
+  }
+  save();
+}
+function editWin(wid, tid, key) {
+  const w = state.weeks.find(x => x.id === wid); if (!w) return;
+  const cur = w.overrides[tid + ':' + key];
+  const val = prompt('Amtliche Gewinnquote in € (leer = Schätzwert):', cur !== undefined ? cur : '');
+  if (val === null) return;
+  if (val.trim() === '') delete w.overrides[tid + ':' + key];
+  else { const n = Number(val.replace(',', '.')); if (!isNaN(n) && n >= 0) w.overrides[tid + ':' + key] = n; }
+  save();
+}
+
+/* ---------- ticket dialog ---------- */
+let dlg = { wid:null, tid:null, game:'lotto', player:'B' };
+function openTk(wid, tid) {
+  dlg = { wid, tid: tid || null, game:'lotto', player:'B' };
+  const w = state.weeks.find(x => x.id === wid);
+  if (tid) {
+    const t = w.tickets.find(x => x.id === tid);
+    dlg.game = t.game; dlg.player = t.player; dlg.t = t;
+  }
+  document.getElementById('tkDlgTitle').textContent = tid ? 'Tipp bearbeiten' : 'Tipp hinzufügen';
+  document.getElementById('tkDelete').style.display = tid ? '' : 'none';
+  document.getElementById('tkErr').textContent = '';
+  renderSegs(); renderTkFields();
+  document.getElementById('tkDialog').showModal();
+}
+function closeTk() { document.getElementById('tkDialog').close(); }
+function renderSegs() {
+  document.getElementById('segGame').innerHTML = Object.keys(GAME_NAMES).map(g =>
+    '<button class="' + (dlg.game === g ? 'on' : '') + '" onclick="dlg.game=\'' + g + '\';renderSegs();renderTkFields()">' + GAME_NAMES[g] + '</button>').join('');
+  document.getElementById('segPlayer').innerHTML = ['B','C'].map(p =>
+    '<button class="' + (dlg.player === p ? 'on ' + p.toLowerCase() : '') + '" onclick="dlg.player=\'' + p + '\';renderSegs()">' + PLAYERS[p] + '</button>').join('');
+}
+function renderTkFields() {
+  const t = (dlg.t && dlg.t.game === dlg.game) ? dlg.t : {};
+  const chk = (id, lbl, on) => '<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)"><input type="checkbox" id="' + id + '" ' + (on ? 'checked' : '') + ' style="width:auto"> ' + lbl + '</label>';
+  let h = '';
+  if (dlg.game === 'lotto') {
+    h += '<div class="d-field"><label>6 Zahlen (1–49)</label><input id="fNums" placeholder="z.B. 3 12 19 27 33 45" value="' + (t.nums || []).join(' ') + '"></div>';
+    h += '<div class="d-field"><label>Superzahl (0–9)</label><input id="fSz" class="short" placeholder="SZ" value="' + (t.sz ?? '') + '"></div>';
+    h += '<div class="d-field"><label>Ziehung</label><select id="fDraws"><option value="sa">Samstag</option><option value="mi">Mittwoch</option><option value="beide">Mittwoch + Samstag</option></select></div>';
+    h += '<div class="d-field"><label>Losnummer (7-stellig, für Spiel 77 / Super 6)</label><input id="fLosnr" placeholder="z.B. 1234567" value="' + (t.losnr || '') + '"></div>';
+    h += '<div class="d-field" style="display:flex;gap:18px">' + chk('fS77', 'Spiel 77', t.s77) + chk('fS6', 'Super 6', t.s6) + '</div>';
+  } else if (dlg.game === 'gs') {
+    h += '<div class="d-field"><label>Losnummer (7-stellig)</label><input id="fLosnr" placeholder="z.B. 1234567" value="' + (t.losnr || '') + '"></div>';
+    h += '<div class="d-field"><label>Losanteil</label><select id="fShare"><option value="1">Ganzes Los (5 €)</option><option value="0.5">Halbes Los (2,50 €)</option><option value="0.2">Fünftel-Los (1 €)</option></select></div>';
+    h += '<div class="d-field" style="display:flex;gap:18px">' + chk('fS77', 'Spiel 77', t.s77) + chk('fS6', 'Super 6', t.s6) + '</div>';
+  } else {
+    h += '<div class="d-field"><label>5 Zahlen (1–50)</label><input id="fNums" placeholder="z.B. 4 17 23 38 46" value="' + (t.nums || []).join(' ') + '"></div>';
+    h += '<div class="d-field"><label>2 Eurozahlen (1–12)</label><input id="fEuros" placeholder="z.B. 3 9" value="' + (t.euros || []).join(' ') + '"></div>';
+  }
+  document.getElementById('tkFields').innerHTML = h;
+  if (dlg.game === 'lotto' && t.draws) document.getElementById('fDraws').value = t.draws;
+  if (dlg.game === 'gs' && t.share) document.getElementById('fShare').value = String(t.share);
+}
+function saveTk() {
+  const w = state.weeks.find(x => x.id === dlg.wid); if (!w) return;
+  const err = document.getElementById('tkErr');
+  const g = dlg.game, val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const t = { id: dlg.tid || uid(), game:g, player:dlg.player };
+  if (g === 'lotto') {
+    const nums = val('fNums') ? parseNums(val('fNums'), 6, 49) : [];
+    if (nums === null) { err.textContent = 'Bitte 6 verschiedene Zahlen von 1–49.'; return; }
+    const szv = val('fSz');
+    if (szv && !/^\d$/.test(szv)) { err.textContent = 'Superzahl: eine Ziffer 0–9.'; return; }
+    const losnr = val('fLosnr').replace(/\D/g, '');
+    if (losnr && losnr.length !== 7) { err.textContent = 'Losnummer muss 7-stellig sein.'; return; }
+    Object.assign(t, { nums, sz: szv ? Number(szv) : null, draws: val('fDraws') || 'sa', losnr,
+      s77: document.getElementById('fS77').checked, s6: document.getElementById('fS6').checked });
+  } else if (g === 'gs') {
+    const losnr = val('fLosnr').replace(/\D/g, '');
+    if (losnr && losnr.length !== 7) { err.textContent = 'Losnummer muss 7-stellig sein.'; return; }
+    Object.assign(t, { losnr, share: Number(val('fShare') || 1),
+      s77: document.getElementById('fS77').checked, s6: document.getElementById('fS6').checked });
+  } else {
+    const nums = val('fNums') ? parseNums(val('fNums'), 5, 50) : [];
+    const euros = val('fEuros') ? parseNums(val('fEuros'), 2, 12) : [];
+    if (nums === null) { err.textContent = 'Bitte 5 verschiedene Zahlen von 1–50.'; return; }
+    if (euros === null) { err.textContent = 'Bitte 2 verschiedene Eurozahlen von 1–12.'; return; }
+    Object.assign(t, { nums, euros });
+  }
+  const idx = w.tickets.findIndex(x => x.id === t.id);
+  if (idx >= 0) w.tickets[idx] = t; else w.tickets.push(t);
+  closeTk(); save();
+}
+function deleteTk() {
+  const w = state.weeks.find(x => x.id === dlg.wid); if (!w || !dlg.tid) return;
+  if (!confirm('Diesen Tipp löschen?')) return;
+  w.tickets = w.tickets.filter(x => x.id !== dlg.tid);
+  closeTk(); save();
+}
+
+/* ---------- weeks / backup ---------- */
+function newWeek() {
+  const start = prompt('Startdatum der Spielwoche (JJJJ-MM-TT):', new Date().toISOString().slice(0, 10));
+  if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return;
+  const stake = Number((prompt('Einsatz in € (gesamt):', '50') || '0').replace(',', '.')) || 0;
+  state.weeks.push({ id:uid(), start, stake, tickets:[],
+    results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]} },
+    overrides:{} });
+  save();
+}
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lotto-duell-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importJSON() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    f.text().then(txt => {
+      try {
+        const s = JSON.parse(txt);
+        if (!s || s.version !== 1 || !Array.isArray(s.weeks)) throw new Error('bad');
+        if (confirm('Aktuelle Daten durch das Backup ersetzen?')) { state = s; save(); }
+      } catch(e) { alert('Ungültige Backup-Datei.'); }
+    });
+  };
+  inp.click();
+}
+
+/* ---------- automatic results (results.json via refresh_results.py) ---------- */
+let autoInfo = null;
+function weekDrawDates(w) {
+  const out = {}, d0 = new Date(w.start + 'T12:00:00');
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(d0.getTime() + i * 864e5), iso = d.toISOString().slice(0, 10);
+    if (d.getDay() === 3) out.mi = iso;
+    if (d.getDay() === 6) out.sa = iso;
+  }
+  return out;
+}
+async function fetchResults(manual) {
+  try {
+    const resp = await fetch('results.json?t=' + Date.now(), { cache:'no-store' });
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    let applied = 0;
+    for (const w of state.weeks) {
+      const dd = weekDrawDates(w), r = w.results;
+      for (const d of ['mi','sa']) {
+        const L = data.lotto && data.lotto[dd[d]];
+        if (L) {
+          const t49 = d === 'mi' ? r.mi49 : r.sa49;
+          t49.nums = L.nums; t49.sz = L.sz;
+          r['s77' + d] = L.s77; r['s6' + d] = L.s6;
+          w.fq = w.fq || {};
+          w.fq[d === 'mi' ? 'mi49' : 'sa49'] = L.quotas49; w.fq['s77' + d] = L.quotasS77; w.fq['s6' + d] = L.quotasS6;
+          applied++;
+        }
+      }
+      const G = data.gs && data.gs[dd.sa];
+      if (G) { Object.assign(r.gs, G); applied++; }
+    }
+    autoInfo = { updated: data.updated, applied };
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    render();
+  } catch(e) {
+    autoInfo = { error:true };
+    render();
+    if (manual) alert('results.json nicht erreichbar — läuft der lokale Server bzw. das Refresh-Skript?');
+  }
+}
+
+render();
+fetchResults(false);
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
