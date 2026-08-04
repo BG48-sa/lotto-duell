@@ -256,7 +256,7 @@ function ticketWins(week, t) {
     }
   } else if (t.game === 'ej') {
     const c = classEJ(t, r.ej);
-    if (c) push('ej', 'GK ' + c + ' (' + LEJ[c] + ')', QEJ[c]);
+    if (c) push('ej', 'GK ' + c + ' (' + LEJ[c] + ')', QEJ[c], (fq.ej || {})[c]);
   }
   return wins;
 }
@@ -539,6 +539,7 @@ function weekDrawDates(w) {
     const d = new Date(d0.getTime() + i * 864e5), iso = d.toISOString().slice(0, 10);
     if (d.getDay() === 3) out.mi = iso;
     if (d.getDay() === 6) out.sa = iso;
+    if (d.getDay() === 5) out.fr = iso;
   }
   return out;
 }
@@ -563,6 +564,12 @@ async function fetchResults(manual) {
       }
       const G = data.gs && data.gs[dd.sa];
       if (G) { Object.assign(r.gs, G); applied++; }
+      const E = data.ej && data.ej[dd.fr]; // duel plays the Friday Eurojackpot draw
+      if (E) {
+        r.ej.nums = E.nums; r.ej.euros = E.euros;
+        w.fq = w.fq || {}; w.fq.ej = E.quotas;
+        applied++;
+      }
     }
     autoInfo = { updated: data.updated, applied };
     localStorage.setItem(LS_KEY, JSON.stringify(state));

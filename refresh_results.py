@@ -68,6 +68,19 @@ def fetch_lotto(iso):
             "quotas49": q49, "quotasS77": qs77, "quotasS6": qs6}
 
 
+def fetch_ej(iso):
+    t = visible(get(f"{BASE}/eurojackpot-zahlen?date={iso}"))
+    if not check_date(t, iso):
+        return None
+    m = re.search(r"((?:\d{1,2} ){5})EZ (\d{1,2}) (\d{1,2})", t)
+    if not m:
+        return None
+    blocks = [b for b in t.split("Gewinnquoten") if re.search(r"Klasse 1 ", b)]
+    return {"nums": sorted(int(x) for x in m.group(1).split()),
+            "euros": sorted([int(m.group(2)), int(m.group(3))]),
+            "quotas": parse_quotas(blocks[0], 12) if blocks else {}}
+
+
 GS_PAT = re.compile(
     r"GK 7 (\d{7})(?: GK 7 (\d{7}))? GK 6 I I (\d{6}) GK 6 I (\d{6}) GK 5 (\d{5}) "
     r"GK 4 (\d{4}) GK 3 (\d{3}) GK 2 (\d{2}) GK 1 (\d)"
@@ -86,13 +99,14 @@ def fetch_gs(iso):
 
 
 def main():
-    data = {"updated": None, "lotto": {}, "gs": {}}
+    data = {"updated": None, "lotto": {}, "gs": {}, "ej": {}}
     if os.path.exists(OUT):
         try:
             with open(OUT) as f:
                 old = json.load(f)
             data["lotto"] = old.get("lotto", {})
             data["gs"] = old.get("gs", {})
+            data["ej"] = old.get("ej", {})
         except Exception:
             pass
 
@@ -116,6 +130,13 @@ def main():
                     data["gs"][iso] = r
                     fetched += 1
                     print(f"gs    {iso}: GK7 {r['k7a']}")
+                time.sleep(0.4)
+            if wd in (1, 4) and iso not in data["ej"]:
+                r = fetch_ej(iso)
+                if r:
+                    data["ej"][iso] = r
+                    fetched += 1
+                    print(f"ej    {iso}: {r['nums']} EZ {r['euros']}")
                 time.sleep(0.4)
         except Exception as e:
             print(f"{iso}: FAILED {e}")
