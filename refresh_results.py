@@ -3,7 +3,8 @@
 
 Used by the Lotto-Duell app (index.html) to auto-fill draw results and official
 prize quotas. Covers: 6aus49 (+ Superzahl), Spiel 77, Super 6 (Wed + Sat draws)
-and Gluecksspirale (Sat). Incremental: dates already present are skipped.
+and Gluecksspirale (Sat). Incremental: dates already present are skipped,
+unless their quotas are still empty (draw entered before quotas were published).
 """
 import datetime
 import json
@@ -117,7 +118,7 @@ def main():
         iso = d.isoformat()
         wd = d.weekday()  # Mon=0 .. Wed=2 .. Sat=5
         try:
-            if wd in (2, 5) and iso not in data["lotto"]:
+            if wd in (2, 5) and not data["lotto"].get(iso, {}).get("quotas49"):
                 r = fetch_lotto(iso)
                 if r:
                     data["lotto"][iso] = r
@@ -131,7 +132,7 @@ def main():
                     fetched += 1
                     print(f"gs    {iso}: GK7 {r['k7a']}")
                 time.sleep(0.4)
-            if wd in (1, 4) and iso not in data["ej"]:
+            if wd in (1, 4) and not data["ej"].get(iso, {}).get("quotas"):
                 r = fetch_ej(iso)
                 if r:
                     data["ej"][iso] = r
