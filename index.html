@@ -45,6 +45,36 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .badge.c { background:rgba(245,158,11,.18); color:var(--accent); }
 .badge.n { background:var(--s3); color:var(--muted); }
 
+/* week score strip */
+.wk-status { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); font-weight:700; margin:4px 0 6px; }
+.wk-status.done { color:var(--accent); }
+.wk-score { display:flex; border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:14px; }
+.wk-score .side { flex:1; padding:10px 8px; text-align:center; }
+.wk-score .side.b { background:rgba(59,130,246,.10); }
+.wk-score .side.c { background:rgba(245,158,11,.08); }
+.wk-score .side.winner { box-shadow:inset 0 0 0 2px var(--accent); }
+.s-name { font-size:11px; font-weight:800; margin-bottom:2px; }
+.side.b .s-name { color:#7fb1ff; } .side.c .s-name { color:var(--accent); }
+.s-eur { font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
+/* game sections */
+.g-sec { margin-bottom:16px; }
+.g-head { font-size:10px; letter-spacing:2.5px; text-transform:uppercase; color:var(--accent); font-weight:800; margin-bottom:3px; }
+.g-draw { font-size:12px; color:var(--muted); margin-bottom:7px; font-variant-numeric:tabular-nums; line-height:1.6; }
+.trow { background:var(--s2); border:1px solid var(--border); border-radius:11px; padding:9px 11px; margin-bottom:6px; cursor:pointer; }
+.trow-main { display:flex; align-items:center; gap:9px; }
+.chip { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+.chip.b { background:rgba(59,130,246,.18); color:#7fb1ff; }
+.chip.c { background:rgba(245,158,11,.18); color:var(--accent); }
+.t-nums { flex:1; font-size:14px; font-weight:600; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
+.t-nums .dim { color:var(--muted); font-weight:500; }
+.t-nums.missing { color:var(--muted); font-style:italic; font-weight:400; font-size:13px; }
+.hit { background:rgba(251,191,36,.18); color:var(--accent); border-radius:6px; padding:0 4px; font-weight:800; }
+.t-win { font-size:13px; font-weight:800; flex-shrink:0; }
+.t-win.won { color:var(--green); }
+.t-win.zero { color:var(--muted); font-weight:600; }
+.t-detail { font-size:11px; color:var(--muted); margin:5px 0 0 33px; line-height:1.5; }
+.t-detail .w { color:var(--green); font-weight:700; cursor:pointer; }
+
 .tk { background:var(--s2); border:1px solid var(--border); border-radius:13px; padding:11px 12px; margin-bottom:8px; cursor:pointer; }
 .tk-top { display:flex; align-items:center; gap:8px; }
 .tk-game { font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--muted); flex:1; }
@@ -158,7 +188,7 @@ let state = load();
                      E('B', [8,24,34,38,39], [6,9]), E('B', [24,34,37,43,49], [2,10]));
       w.stake = 64.95; changed = true;
     }
-    const solo = w.tickets.find(t => t.losnr === '3385680');
+    const solo = w.tickets.find(t => t.game === 'gs' && t.losnr === '3385680');
     if (!solo) {
       w.tickets.push({ id:uid(), game:'gs', player:'C', losnr:'3385680', share:1, s77:false, s6:false });
       changed = true;
@@ -169,7 +199,7 @@ let state = load();
     // Wednesday Spiel 77 / Super 6 per the two 6aus49 receipts: Schein A (Losnr 3385680,
     // Claude's fields + Bernd rows 1-2) -> Claude's R1; Schein B (Losnr 0569880) -> Bernd's R3
     const cr1 = w.tickets.find(t => t.game === 'lotto' && t.nums.join() === '4,15,24,32,35,41');
-    if (cr1 && cr1.losnr !== '3385680') { Object.assign(cr1, { losnr:'3385680', s77:true, s6:true }); changed = true; }
+    if (cr1 && (cr1.losnr !== '3385680' || !cr1.s77 || !cr1.s6)) { Object.assign(cr1, { losnr:'3385680', s77:true, s6:true }); changed = true; }
     const br3 = w.tickets.find(t => t.game === 'lotto' && t.nums.join() === '10,13,22,34,42,45');
     if (br3 && br3.losnr !== '0569880') { Object.assign(br3, { losnr:'0569880', s77:true, s6:true }); changed = true; }
   }
@@ -291,14 +321,15 @@ function drawPresent(w, key) {
   if (key === 'ejdi') return !!(r.ejdi && r.ejdi.nums.length === 5);
   return r.ej.nums.length === 5;
 }
-// 'none' | 'partial' | 'done' — relative to the draws this week's tickets actually need
-function weekStatus(w) {
-  const needed = new Set();
-  w.tickets.forEach(t => drawKeysFor(t).forEach(k => needed.add(k)));
-  if (!needed.size) return 'none';
-  const present = [...needed].filter(k => drawPresent(w, k)).length;
-  return present === 0 ? 'none' : (present === needed.size ? 'done' : 'partial');
+// draw coverage relative to the draws this week's tickets actually need
+function weekDrawInfo(w) {
+  const needed = [];
+  w.tickets.forEach(t => drawKeysFor(t).forEach(k => { if (!needed.includes(k)) needed.push(k); }));
+  const present = needed.filter(k => drawPresent(w, k));
+  const status = !needed.length || !present.length ? 'none' : (present.length === needed.length ? 'done' : 'partial');
+  return { needed, present, status };
 }
+function weekStatus(w) { return weekDrawInfo(w).status; }
 function ticketDone(w, t) {
   return drawKeysFor(t).every(k => drawPresent(w, k));
 }
@@ -344,53 +375,91 @@ function sideHTML(name, tot, leader, cls) {
     '<div class="duel-eur">' + eur(tot.win) + '</div><div class="duel-weeks">' + tot.weeks + ' Woche' + (tot.weeks === 1 ? '' : 'n') + ' gewonnen</div></div>';
 }
 function weekHTML(w) {
-  const t = weekTotals(w), status = weekStatus(w);
-  let winner = '<span class="badge n">Ergebnisse ausstehend</span>';
-  if (status === 'partial') winner = '<span class="badge n">Zwischenstand — Bernd ' + eur(t.B) + ' : Claude ' + eur(t.C) + '</span>';
-  else if (status === 'done') winner = t.B === t.C ? '<span class="badge n">Unentschieden (' + eur(t.B) + ')</span>'
-    : (t.B > t.C ? '<span class="badge b">🏆 Bernd — ' + eur(t.B) + ' : ' + eur(t.C) + '</span>'
-                 : '<span class="badge c">🏆 Claude — ' + eur(t.C) + ' : ' + eur(t.B) + '</span>');
-  const r = w.results, drawn = [];
-  if (drawPresent(w, 'mi49')) drawn.push('Mi 6aus49: ' + r.mi49.nums.join(' ') + ' SZ ' + r.mi49.sz + (r.s77mi ? ' · S77 ' + r.s77mi : '') + (r.s6mi ? ' · S6 ' + r.s6mi : ''));
-  if (drawPresent(w, 'sa49')) drawn.push('Sa 6aus49: ' + r.sa49.nums.join(' ') + ' SZ ' + r.sa49.sz + (r.s77sa ? ' · S77 ' + r.s77sa : '') + (r.s6sa ? ' · S6 ' + r.s6sa : ''));
-  if (drawPresent(w, 'ejdi')) drawn.push('Di Eurojackpot: ' + r.ejdi.nums.join(' ') + ' EZ ' + r.ejdi.euros.join(' '));
-  if (drawPresent(w, 'ej')) drawn.push('Fr Eurojackpot: ' + r.ej.nums.join(' ') + ' EZ ' + r.ej.euros.join(' '));
-  if (drawPresent(w, 'gs')) drawn.push('GlücksSpirale: ' + [r.gs.k1, r.gs.k2, r.gs.k3, r.gs.k4, r.gs.k5, r.gs.k6a + '/' + r.gs.k6b, r.gs.k7a + (r.gs.k7b ? '/' + r.gs.k7b : '')].join(' · '));
-  const drawnHTML = drawn.length
-    ? '<div class="tk-sub" style="margin:0 0 10px">🎱 ' + drawn.map(esc).join('<br>🎱 ') + '</div>' : '';
-  const order = { B:0, C:1 };
-  const tks = w.tickets.slice().sort((a, b) => order[a.player] - order[b.player] || a.game.localeCompare(b.game))
-    .map(tk => ticketHTML(w, tk)).join('');
+  const t = weekTotals(w), info = weekDrawInfo(w), status = info.status;
+  let label = 'Ergebnisse ausstehend', cls = '';
+  if (status === 'partial') label = 'Zwischenstand · ' + info.present.length + ' von ' + info.needed.length + ' Ziehungen';
+  else if (status === 'done') { cls = ' done'; label = t.B === t.C ? '🏁 Endstand — Unentschieden' : '🏁 Endstand'; }
+  const bWin = status === 'done' && t.B > t.C, cWin = status === 'done' && t.C > t.B;
+  const score = '<div class="wk-status' + cls + '">' + label + '</div>' +
+    '<div class="wk-score">' +
+    '<div class="side b' + (bWin ? ' winner' : '') + '"><div class="s-name">' + (bWin ? '🏆 ' : '') + 'Bernd</div><div class="s-eur">' + eur(t.B) + '</div></div>' +
+    '<div class="side c' + (cWin ? ' winner' : '') + '"><div class="s-name">' + (cWin ? '🏆 ' : '') + 'Claude</div><div class="s-eur">' + eur(t.C) + '</div></div></div>';
+  const secs = ['lotto','ej','gs'].filter(g => w.tickets.some(x => x.game === g)).map(g => sectionHTML(w, g)).join('');
   return '<div class="card"><div class="wk-head"><div class="wk-title">Spielwoche ab ' + fmtDate(w.start) + '</div>' +
-    '<div class="wk-stake">Einsatz ' + eur(w.stake || 0) + '</div></div>' +
-    '<div class="wk-winner">' + winner + '</div>' + drawnHTML + tks +
+    '<div class="wk-stake">Einsatz ' + eur(w.stake || 0) + '</div></div>' + score + secs +
     '<button class="btn" onclick="openTk(\'' + w.id + '\')">＋ Tipp hinzufügen</button>' +
-    '<button class="res-toggle" onclick="toggleRes(\'' + w.id + '\')">' + (openRes[w.id] ? '▾' : '▸') + ' Ergebnisse eintragen</button>' +
+    '<button class="res-toggle" onclick="toggleRes(\'' + w.id + '\')">' + (openRes[w.id] ? '▾' : '▸') + ' Ergebnisse manuell eintragen</button>' +
     (openRes[w.id] ? resFormHTML(w) : '') + '</div>';
 }
-function ticketHTML(w, t) {
+// drawn numbers for one game, shown ONCE in the section header
+function drawLine(w, g) {
+  const r = w.results, parts = [];
+  const need = new Set();
+  w.tickets.filter(x => x.game === g).forEach(x => drawKeysFor(x).forEach(k => need.add(k)));
+  if (g === 'lotto') {
+    if (need.has('mi49')) parts.push(drawPresent(w, 'mi49') ? 'Mi: ' + r.mi49.nums.join(' ') + ' · SZ ' + r.mi49.sz + (r.s77mi ? ' · S77 ' + r.s77mi : '') + (r.s6mi ? ' · S6 ' + r.s6mi : '') : 'Mi: Ziehung ausstehend');
+    if (need.has('sa49')) parts.push(drawPresent(w, 'sa49') ? 'Sa: ' + r.sa49.nums.join(' ') + ' · SZ ' + r.sa49.sz + (r.s77sa ? ' · S77 ' + r.s77sa : '') + (r.s6sa ? ' · S6 ' + r.s6sa : '') : 'Sa: Ziehung ausstehend');
+  } else if (g === 'ej') {
+    if (need.has('ejdi')) parts.push(drawPresent(w, 'ejdi') ? 'Di: ' + r.ejdi.nums.join(' ') + ' · EZ ' + r.ejdi.euros.join(' ') : 'Di: Ziehung ausstehend');
+    if (need.has('ej')) parts.push(drawPresent(w, 'ej') ? 'Fr: ' + r.ej.nums.join(' ') + ' · EZ ' + r.ej.euros.join(' ') : 'Fr: Ziehung ausstehend');
+  } else {
+    const zusatz = w.tickets.some(x => x.game === 'gs' && (x.s77 || x.s6));
+    parts.push(drawPresent(w, 'gs')
+      ? 'Sa: ' + [r.gs.k1, r.gs.k2, r.gs.k3, r.gs.k4, r.gs.k5, r.gs.k6a + '/' + r.gs.k6b, r.gs.k7a + (r.gs.k7b ? '/' + r.gs.k7b : '')].join(' · ')
+      : 'Sa: Ziehung ausstehend');
+    if (zusatz && r.s77sa) parts.push('S77 ' + r.s77sa + ' · S6 ' + r.s6sa);
+  }
+  return parts.map(esc).join('<br>');
+}
+function sectionHTML(w, g) {
+  const order = { B:0, C:1 };
+  const rows = w.tickets.filter(x => x.game === g).sort((a, b) => order[a.player] - order[b.player])
+    .map(x => rowHTML(w, x)).join('');
+  return '<div class="g-sec"><div class="g-head">' + GAME_NAMES[g] + '</div>' +
+    '<div class="g-draw">🎱 ' + drawLine(w, g) + '</div>' + rows + '</div>';
+}
+function rowHTML(w, t) {
   const wins = ticketWins(w, t), done = ticketDone(w, t);
-  let numsHTML;
-  if (t.game === 'lotto') numsHTML = t.nums.length === 6
-    ? t.nums.join(' · ') + ' <span style="color:var(--muted)">SZ ' + (t.sz === null ? '–' : t.sz) + '</span>' : null;
-  else if (t.game === 'gs') numsHTML = t.losnr ? t.losnr.split('').join(' ') : null;
-  else numsHTML = t.nums.length === 5 ? t.nums.join(' · ') + ' <span style="color:var(--muted)">EZ ' + (t.euros || []).join(' · ') + '</span>' : null;
+  const total = wins.reduce((s, x) => s + x.amount, 0);
+  const approx = wins.some(x => x.approx);
+  let numsHTML = null;
   const extras = [];
-  if (t.game === 'lotto') extras.push(t.draws === 'beide' ? 'Mi + Sa' : (t.draws === 'mi' ? 'Mittwoch' : 'Samstag'));
-  if (t.game === 'ej') extras.push(t.draws === 'di' ? 'Dienstag' : 'Freitag');
+  if (t.game === 'lotto') {
+    if (t.nums.length === 6) {
+      const dn = new Set(); let szHit = false;
+      drawKeysFor(t).forEach(k => { if (drawPresent(w, k)) { w.results[k].nums.forEach(n => dn.add(n)); if (t.sz !== null && w.results[k].sz === t.sz) szHit = true; } });
+      numsHTML = t.nums.map(n => dn.has(n) ? '<span class="hit">' + n + '</span>' : n).join(' · ') +
+        ' <span class="' + (szHit ? 'hit' : 'dim') + '">SZ ' + (t.sz === null ? '–' : t.sz) + '</span>';
+    }
+    extras.push(t.draws === 'beide' ? 'Mi + Sa' : (t.draws === 'mi' ? 'Mi' : 'Sa'));
+  } else if (t.game === 'ej') {
+    if (t.nums.length === 5) {
+      const dr = t.draws === 'di' ? (w.results.ejdi || { nums:[], euros:[] }) : w.results.ej;
+      numsHTML = t.nums.map(n => dr.nums.includes(n) ? '<span class="hit">' + n + '</span>' : n).join(' · ') +
+        ' <span class="dim">EZ</span> ' + (t.euros || []).map(n => (dr.euros || []).includes(n) ? '<span class="hit">' + n + '</span>' : n).join(' · ');
+    }
+    extras.push(t.draws === 'di' ? 'Di' : 'Fr');
+  } else if (t.losnr) {
+    const c = drawPresent(w, 'gs') ? gsClass(t.losnr, w.results.gs) : null;
+    const cut = c ? 7 - c : 7;
+    numsHTML = t.losnr.slice(0, cut).split('').join(' ') +
+      (c ? ' <span class="hit">' + t.losnr.slice(cut).split('').join(' ') + '</span>' : '');
+  }
   if (t.game === 'gs' && t.share < 1) extras.push(t.share === 0.5 ? '½ Los' : '⅕ Los');
-  if (t.s77) extras.push('Spiel 77');
-  if (t.s6) extras.push('Super 6');
-  if ((t.game === 'lotto' || t.game === 'gs') && t.losnr) extras.push('Losnr. ' + t.losnr);
-  const winHTML = wins.length
-    ? wins.map(win => '<div class="tk-win" onclick="event.stopPropagation();editWin(\'' + w.id + '\',\'' + t.id + '\',\'' + win.key + '\')">✓ ' +
-        esc(win.label) + ' — ' + (win.approx ? '<span class="approx">~</span>' : '') + eur(win.amount) + '</div>').join('')
-    : (done && numsHTML ? '<div class="tk-lose">kein Gewinn</div>' : '');
-  return '<div class="tk" onclick="openTk(\'' + w.id + '\',\'' + t.id + '\')"><div class="tk-top">' +
-    '<span class="badge ' + t.player.toLowerCase() + '">' + PLAYERS[t.player] + '</span>' +
-    '<span class="tk-game">' + GAME_NAMES[t.game] + '</span></div>' +
-    (numsHTML ? '<div class="tk-nums">' + numsHTML + '</div>' : '<div class="tk-nums missing">Zahlen fehlen — antippen ✎</div>') +
-    (extras.length ? '<div class="tk-sub">' + esc(extras.join(' · ')) + '</div>' : '') + winHTML + '</div>';
+  if (t.s77) extras.push('S77');
+  if (t.s6) extras.push('S6');
+  if (t.game === 'lotto' && t.losnr) extras.push('Losnr. ' + t.losnr);
+  const winCell = done ? (total > 0 ? '<span class="t-win won">+' + (approx ? '~' : '') + eur(total) + '</span>'
+                                    : '<span class="t-win zero">—</span>') : '';
+  const detail = [];
+  if (extras.length) detail.push('<span>' + esc(extras.join(' · ')) + '</span>');
+  wins.forEach(win => detail.push('<span class="w" onclick="event.stopPropagation();editWin(\'' + w.id + '\',\'' + t.id + '\',\'' + win.key + '\')">✓ ' +
+    esc(win.label) + ' ' + (win.approx ? '~' : '') + eur(win.amount) + '</span>'));
+  return '<div class="trow" onclick="openTk(\'' + w.id + '\',\'' + t.id + '\')"><div class="trow-main">' +
+    '<span class="chip ' + t.player.toLowerCase() + '" title="' + PLAYERS[t.player] + '">' + t.player + '</span>' +
+    (numsHTML ? '<span class="t-nums">' + numsHTML + '</span>' : '<span class="t-nums missing">Zahlen fehlen — antippen ✎</span>') +
+    winCell + '</div>' +
+    (detail.length ? '<div class="t-detail">' + detail.join(' · ') + '</div>' : '') + '</div>';
 }
 
 /* ---------- results form ---------- */
@@ -638,7 +707,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 2;
+const APP_VERSION = 3;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
