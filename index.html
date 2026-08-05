@@ -128,7 +128,7 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
     <div class="duel" id="scoreboard"></div>
     <div class="tot-row" id="totals"></div>
     <div class="tot-row" style="align-items:center"><span id="autoStatus"></span>
-      <button class="res-toggle" style="padding:0" onclick="fetchResults(true)">⟳ Ergebnisse laden</button></div>
+      <button class="res-toggle" style="padding:0" id="reloadBtn" onclick="fetchResults(true)">⟳ Ergebnisse laden</button></div>
   </div>
   <button class="btn solid" onclick="newWeek()">＋ Neue Spielwoche</button>
   <div style="height:10px"></div>
@@ -662,7 +662,14 @@ function weekDrawDates(w) {
   }
   return out;
 }
+function flashReloadBtn(text) {
+  const b = document.getElementById('reloadBtn');
+  if (!b) return;
+  b.textContent = text;
+  if (text !== '⟳ lädt …') setTimeout(() => { const x = document.getElementById('reloadBtn'); if (x) x.textContent = '⟳ Ergebnisse laden'; }, 3000);
+}
 async function fetchResults(manual) {
+  if (manual) flashReloadBtn('⟳ lädt …');
   try {
     const resp = await fetch('results.json?t=' + Date.now(), { cache:'no-store' });
     if (!resp.ok) throw new Error(resp.status);
@@ -696,18 +703,20 @@ async function fetchResults(manual) {
         applied++;
       }
     }
+    const isNew = !autoInfo || autoInfo.updated !== data.updated;
     autoInfo = { updated: data.updated, applied };
     localStorage.setItem(LS_KEY, JSON.stringify(state));
     render();
+    if (manual) flashReloadBtn(isNew ? '✓ Aktualisiert' : '✓ Aktuell — keine neue Ziehung');
   } catch(e) {
     autoInfo = { error:true };
     render();
-    if (manual) alert('results.json nicht erreichbar — läuft der lokale Server bzw. das Refresh-Skript?');
+    if (manual) flashReloadBtn('✗ nicht erreichbar');
   }
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 3;
+const APP_VERSION = 4;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
