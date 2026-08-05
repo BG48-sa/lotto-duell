@@ -2,8 +2,11 @@ name: Refresh lottery results
 
 on:
   schedule:
-    - cron: '30 4 * * *'    # daily 06:30 CEST — catches next-day official quotas
-    - cron: '0 20 * * 2,3,5,6'  # Tue/Wed/Fri/Sat 22:00 CEST — right after the draws
+    - cron: '30 4 * * *'        # daily 06:30 CEST — quota backfill
+    - cron: '0 17 * * 3'        # Wed 19:00 CEST — 6aus49 numbers (draw 18:25)
+    - cron: '0 18 * * 6'        # Sat 20:00 CEST — GlücksSpirale 19:15 + 6aus49 19:25
+    - cron: '0 19 * * 2,5'      # Tue/Fri 21:00 CEST — Eurojackpot numbers (draw 20:00)
+    - cron: '0 20 * * 2,3,5,6'  # 22:00 CEST backstop + quota completion
   workflow_dispatch:
 
 permissions:

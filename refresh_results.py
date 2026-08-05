@@ -116,8 +116,12 @@ def main():
         d = today - datetime.timedelta(days=back)
         iso = d.isoformat()
         wd = d.weekday()  # Mon=0 .. Wed=2 .. Sat=5
+        # an entry counts as complete only once official quotas arrived —
+        # early evening fetches get numbers first, later runs backfill quotas
+        lotto_done = data["lotto"].get(iso, {}).get("quotas49")
+        ej_done = data["ej"].get(iso, {}).get("quotas")
         try:
-            if wd in (2, 5) and iso not in data["lotto"]:
+            if wd in (2, 5) and not lotto_done:
                 r = fetch_lotto(iso)
                 if r:
                     data["lotto"][iso] = r
@@ -131,7 +135,7 @@ def main():
                     fetched += 1
                     print(f"gs    {iso}: GK7 {r['k7a']}")
                 time.sleep(0.4)
-            if wd in (1, 4) and iso not in data["ej"]:
+            if wd in (1, 4) and not ej_done:
                 r = fetch_ej(iso)
                 if r:
                     data["ej"][iso] = r
