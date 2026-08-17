@@ -241,6 +241,8 @@ let state = load();
   // week 3 per the Lotto24 receipts of 17.08.2026: 6aus49 Schein (Losnr 3484478, SZ 8, Mi.,
   // S77+S6, 12,75 €), EJ Schein (Losnr 5892338, Di., 14,00 €), GS-Los 3484478 solo (6,30 €),
   // GS-Los 5892338 with S77+S6 for the Saturday draw (9,05 €). Endsumme 42,10 €.
+  // Second order of 17.08.: one more GS-Los each, both with S77+S6 (Los 3607982 -> Claude,
+  // Los 5663187 -> Bernd, 20,90 €) -> week stake 63,00 €.
   // Split like week 2: 6aus49 Schein + GS-solo -> Claude; EJ Schein + GS incl. Sa-S77/S6 -> Bernd.
   // Note: Claude's EJ Feld 2 was ordered with EZ 3+5 (not the picked 4+6) — receipt counts.
   {
@@ -248,12 +250,18 @@ let state = load();
     const E = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
     let w3 = state.weeks.find(w => w.start === '2026-08-17');
     if (!w3) {
-      w3 = { id:uid(), start:'2026-08-17', stake:42.10, tickets:[],
+      w3 = { id:uid(), start:'2026-08-17', stake:63.00, tickets:[],
         results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
         overrides:{} };
       state.weeks.push(w3); changed = true;
     }
-    if (w3.stake !== 42.10) { w3.stake = 42.10; changed = true; }
+    if (w3.stake !== 63.00) { w3.stake = 63.00; changed = true; }
+    if (!w3.tickets.some(t => t.game === 'gs' && t.losnr === '3607982')) {
+      w3.tickets.push(
+        { id:uid(), game:'gs', player:'C', losnr:'3607982', share:1, s77:true, s6:true },
+        { id:uid(), game:'gs', player:'B', losnr:'5663187', share:1, s77:true, s6:true });
+      changed = true;
+    }
     if (!w3.tickets.some(t => t.game === 'lotto')) {
       w3.tickets.push(
         Object.assign(L('C', [2,4,23,33,38,41]), { losnr:'3484478', s77:true, s6:true }),
@@ -795,7 +803,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 8;
+const APP_VERSION = 9;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
