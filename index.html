@@ -238,6 +238,42 @@ let state = load();
       changed = true;
     }
   }
+  // week 3 per the Lotto24 receipts of 17.08.2026: 6aus49 Schein (Losnr 3484478, SZ 8, Mi.,
+  // S77+S6, 12,75 €), EJ Schein (Losnr 5892338, Di., 14,00 €), GS-Los 3484478 solo (6,30 €),
+  // GS-Los 5892338 with S77+S6 for the Saturday draw (9,05 €). Endsumme 42,10 €.
+  // Split like week 2: 6aus49 Schein + GS-solo -> Claude; EJ Schein + GS incl. Sa-S77/S6 -> Bernd.
+  // Note: Claude's EJ Feld 2 was ordered with EZ 3+5 (not the picked 4+6) — receipt counts.
+  {
+    const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:8, draws:'mi', losnr:'', s77:false, s6:false });
+    const E = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w3 = state.weeks.find(w => w.start === '2026-08-17');
+    if (!w3) {
+      w3 = { id:uid(), start:'2026-08-17', stake:42.10, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w3); changed = true;
+    }
+    if (w3.stake !== 42.10) { w3.stake = 42.10; changed = true; }
+    if (!w3.tickets.some(t => t.game === 'lotto')) {
+      w3.tickets.push(
+        Object.assign(L('C', [2,4,23,33,38,41]), { losnr:'3484478', s77:true, s6:true }),
+        L('C', [18,22,23,25,47,49]), L('C', [3,7,13,24,32,48]),
+        L('B', [23,25,27,32,35,46]), L('B', [15,17,19,23,25,36]), L('B', [11,12,26,30,38,42]));
+      changed = true;
+    }
+    if (!w3.tickets.some(t => t.game === 'ej')) {
+      w3.tickets.push(
+        E('C', [9,17,33,40,44], [4,6]), E('C', [1,4,8,23,40], [3,5]), E('C', [8,18,23,32,38], [1,4]),
+        E('B', [4,6,20,23,36], [5,8]), E('B', [11,21,27,38,43], [4,8]), E('B', [18,21,28,37,44], [2,5]));
+      changed = true;
+    }
+    if (!w3.tickets.some(t => t.game === 'gs')) {
+      w3.tickets.push(
+        { id:uid(), game:'gs', player:'C', losnr:'3484478', share:1, s77:false, s6:false },
+        { id:uid(), game:'gs', player:'B', losnr:'5892338', share:1, s77:true, s6:true });
+      changed = true;
+    }
+  }
   // corrections for phones that already seeded week 2 via v5: exact stake per receipts,
   // and Bernd's GS-Los 4897135 plays Spiel 77 + Super 6 in the Saturday draw
   for (const w of state.weeks) {
@@ -759,7 +795,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
