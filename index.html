@@ -282,6 +282,27 @@ let state = load();
       changed = true;
     }
   }
+  // week 4 per the Lotto24 receipt of 24.08.2026: 6aus49 Schein (Losnr 2971818, SZ 8, Mi. 26.8.,
+  // S77+S6, 12,75 €). Felder 1-3 -> Claude, Felder 4-6 -> Bernd (Split wie Woche 2/3:
+  // 6aus49 Schein mit S77+S6 -> Claude). Note: Claude's Feld 2 was ordered as 35+36
+  // (not the picked 26+35) — receipt counts. EJ/GS receipts to follow; stake is partial.
+  {
+    const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:8, draws:'mi', losnr:'', s77:false, s6:false });
+    let w4 = state.weeks.find(w => w.start === '2026-08-24');
+    if (!w4) {
+      w4 = { id:uid(), start:'2026-08-24', stake:12.75, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w4); changed = true;
+    }
+    if (!w4.tickets.some(t => t.game === 'lotto')) {
+      w4.tickets.push(
+        Object.assign(L('C', [6,14,21,29,37,44]), { losnr:'2971818', s77:true, s6:true }),
+        L('C', [2,9,17,35,36,46]), L('C', [5,13,23,31,40,48]),
+        L('B', [11,20,24,26,31,33]), L('B', [23,27,31,32,37,41]), L('B', [13,23,24,31,33,46]));
+      changed = true;
+    }
+  }
   // corrections for phones that already seeded week 2 via v5: exact stake per receipts,
   // and Bernd's GS-Los 4897135 plays Spiel 77 + Super 6 in the Saturday draw
   for (const w of state.weeks) {
