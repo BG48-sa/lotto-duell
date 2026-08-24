@@ -282,24 +282,39 @@ let state = load();
       changed = true;
     }
   }
-  // week 4 per the Lotto24 receipt of 24.08.2026: 6aus49 Schein (Losnr 2971818, SZ 8, Mi. 26.8.,
-  // S77+S6, 12,75 €). Felder 1-3 -> Claude, Felder 4-6 -> Bernd (Split wie Woche 2/3:
-  // 6aus49 Schein mit S77+S6 -> Claude). Note: Claude's Feld 2 was ordered as 35+36
-  // (not the picked 26+35) — receipt counts. EJ/GS receipts to follow; stake is partial.
+  // week 4 per the Lotto24 receipts of 24.08.2026: 6aus49 Schein (Losnr 2971818, SZ 8, Mi. 26.8.,
+  // S77+S6, 12,75 €), EJ Schein (Losnr 4824245, Fr. 28.8. — Freitagsziehung, not Di like
+  // weeks 1-3, 14,00 €), GS-Los 4824245 with S77+S6 for the Saturday draw (10,45 €).
+  // Week stake 37,20 €. Split like weeks 2/3: 6aus49 Schein with S77+S6 -> Claude;
+  // EJ Schein + GS incl. Sa-S77/S6 -> Bernd. Felder 1-3 -> Claude, 4-6 -> Bernd on both
+  // Scheine. No GS-solo for Claude this week. Note: Claude's 6aus49 Feld 2 was ordered
+  // as 35+36 (not the picked 26+35) — receipt counts.
   {
     const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:8, draws:'mi', losnr:'', s77:false, s6:false });
+    const E = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'fr' });
     let w4 = state.weeks.find(w => w.start === '2026-08-24');
     if (!w4) {
-      w4 = { id:uid(), start:'2026-08-24', stake:12.75, tickets:[],
+      w4 = { id:uid(), start:'2026-08-24', stake:37.20, tickets:[],
         results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
         overrides:{} };
       state.weeks.push(w4); changed = true;
     }
+    if (w4.stake !== 37.20) { w4.stake = 37.20; changed = true; }
     if (!w4.tickets.some(t => t.game === 'lotto')) {
       w4.tickets.push(
         Object.assign(L('C', [6,14,21,29,37,44]), { losnr:'2971818', s77:true, s6:true }),
         L('C', [2,9,17,35,36,46]), L('C', [5,13,23,31,40,48]),
         L('B', [11,20,24,26,31,33]), L('B', [23,27,31,32,37,41]), L('B', [13,23,24,31,33,46]));
+      changed = true;
+    }
+    if (!w4.tickets.some(t => t.game === 'ej')) {
+      w4.tickets.push(
+        E('C', [7,16,23,34,46], [2,9]), E('C', [3,12,25,38,49], [5,10]), E('C', [9,19,28,33,42], [1,7]),
+        E('B', [13,19,28,32,33], [3,9]), E('B', [13,19,32,34,38], [4,7]), E('B', [23,28,35,38,44], [5,11]));
+      changed = true;
+    }
+    if (!w4.tickets.some(t => t.game === 'gs')) {
+      w4.tickets.push({ id:uid(), game:'gs', player:'B', losnr:'4824245', share:1, s77:true, s6:true });
       changed = true;
     }
   }
