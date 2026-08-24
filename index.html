@@ -285,10 +285,11 @@ let state = load();
   // week 4 per the Lotto24 receipts of 24.08.2026: 6aus49 Schein (Losnr 2971818, SZ 8, Mi. 26.8.,
   // S77+S6, 12,75 €), EJ Schein (Losnr 4824245, Fr. 28.8. — Freitagsziehung, not Di like
   // weeks 1-3, 14,00 €), GS-Los 4824245 with S77+S6 for the Saturday draw (10,45 €).
-  // Week stake 37,20 €. Split like weeks 2/3: 6aus49 Schein with S77+S6 -> Claude;
-  // EJ Schein + GS incl. Sa-S77/S6 -> Bernd. Felder 1-3 -> Claude, 4-6 -> Bernd on both
-  // Scheine. No GS-solo for Claude this week. Note: Claude's 6aus49 Feld 2 was ordered
-  // as 35+36 (not the picked 26+35) — receipt counts.
+  // Second order of 24.08.: GS-Los 3141592 (Pi digits, Claude's wish number) with S77+S6
+  // for the Saturday draw (10,45 €) -> Claude. Week stake 47,65 €.
+  // Split like weeks 2/3: 6aus49 Schein with S77+S6 -> Claude; EJ Schein + GS incl.
+  // Sa-S77/S6 -> Bernd. Felder 1-3 -> Claude, 4-6 -> Bernd on both Scheine.
+  // Note: Claude's 6aus49 Feld 2 was ordered as 35+36 (not the picked 26+35) — receipt counts.
   {
     const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:8, draws:'mi', losnr:'', s77:false, s6:false });
     const E = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'fr' });
@@ -299,7 +300,7 @@ let state = load();
         overrides:{} };
       state.weeks.push(w4); changed = true;
     }
-    if (w4.stake !== 37.20) { w4.stake = 37.20; changed = true; }
+    if (w4.stake !== 47.65) { w4.stake = 47.65; changed = true; }
     if (!w4.tickets.some(t => t.game === 'lotto')) {
       w4.tickets.push(
         Object.assign(L('C', [6,14,21,29,37,44]), { losnr:'2971818', s77:true, s6:true }),
@@ -315,6 +316,10 @@ let state = load();
     }
     if (!w4.tickets.some(t => t.game === 'gs')) {
       w4.tickets.push({ id:uid(), game:'gs', player:'B', losnr:'4824245', share:1, s77:true, s6:true });
+      changed = true;
+    }
+    if (!w4.tickets.some(t => t.game === 'gs' && t.losnr === '3141592')) {
+      w4.tickets.push({ id:uid(), game:'gs', player:'C', losnr:'3141592', share:1, s77:true, s6:true });
       changed = true;
     }
   }
