@@ -323,6 +323,32 @@ let state = load();
       changed = true;
     }
   }
+  // week 5 per the Lotto24 receipts of 30.08.2026: 6aus49 Schein (Losnr 3657213, SZ 3 —
+  // Claude's wish Superzahl —, Mi. 2.9., S77+S6, 12,75 €) and GS-Los 3657213 solo
+  // (Sa. 5.9., 6,30 €). Split like weeks 2/3: 6aus49 Schein + GS-solo -> Claude;
+  // Felder 1-3 -> Claude, 4-6 -> Bernd. EJ Schein / Bernd's GS-Los not (yet) ordered —
+  // stake 19,05 € per the receipts so far.
+  {
+    const L = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:3, draws:'mi', losnr:'', s77:false, s6:false });
+    let w5 = state.weeks.find(w => w.start === '2026-08-31');
+    if (!w5) {
+      w5 = { id:uid(), start:'2026-08-31', stake:19.05, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w5); changed = true;
+    }
+    if (!w5.tickets.some(t => t.game === 'lotto')) {
+      w5.tickets.push(
+        Object.assign(L('C', [4,11,22,27,36,45]), { losnr:'3657213', s77:true, s6:true }),
+        L('C', [1,8,19,30,41,47]), L('C', [10,16,25,34,43,49]),
+        L('B', [13,17,23,24,31,39]), L('B', [10,13,17,24,25,42]), L('B', [5,19,24,26,33,39]));
+      changed = true;
+    }
+    if (!w5.tickets.some(t => t.game === 'gs')) {
+      w5.tickets.push({ id:uid(), game:'gs', player:'C', losnr:'3657213', share:1, s77:false, s6:false });
+      changed = true;
+    }
+  }
   // corrections for phones that already seeded week 2 via v5: exact stake per receipts,
   // and Bernd's GS-Los 4897135 plays Spiel 77 + Super 6 in the Saturday draw
   for (const w of state.weeks) {
@@ -844,7 +870,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 9;
+const APP_VERSION = 13;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
