@@ -342,7 +342,7 @@ let state = load();
         overrides:{} };
       state.weeks.push(w5); changed = true;
     }
-    if (w5.stake !== 53.95) { w5.stake = 53.95; changed = true; }
+    if (w5.stake !== 65.15) { w5.stake = 65.15; changed = true; }
     if (!w5.tickets.some(t => t.game === 'lotto')) {
       w5.tickets.push(
         Object.assign(L('C', [4,11,22,27,36,45]), { losnr:'3657213', s77:true, s6:true }),
@@ -366,6 +366,18 @@ let state = load();
     }
     if (!w5.tickets.some(t => t.game === 'gs' && t.losnr === '5125198')) {
       w5.tickets.push({ id:uid(), game:'gs', player:'B', losnr:'5125198', share:1, s77:true, s6:true });
+      changed = true;
+    }
+    // v15: extra 6aus49 Schein for the SATURDAY draw 5.9. per Lotto24 receipt of 02.09. 20:41
+    // (Losnr 2407353, SZ 3, 8 Felder, no S77/S6, 11,20 €). Felder 1-3 -> Claude, 4-8 -> Bernd.
+    // Week stake 53,95 + 11,20 = 65,15 €.
+    if (!w5.tickets.some(t => t.game === 'lotto' && t.draws === 'sa')) {
+      const S = (p, nums) => ({ id:uid(), game:'lotto', player:p, nums, sz:3, draws:'sa', losnr:'', s77:false, s6:false });
+      w5.tickets.push(
+        Object.assign(S('C', [7,33,38,42,46,49]), { losnr:'2407353' }),
+        S('C', [2,26,35,39,44,49]), S('C', [14,21,32,37,43,46]),
+        S('B', [17,19,31,34,36,40]), S('B', [10,11,16,17,34,38]), S('B', [14,16,18,33,44,48]),
+        S('B', [11,15,22,25,39,43]), S('B', [8,9,17,25,38,40]));
       changed = true;
     }
   }
@@ -890,7 +902,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 14;
+const APP_VERSION = 15;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
