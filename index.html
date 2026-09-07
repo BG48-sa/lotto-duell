@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#151322">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>Lotto-Duell — Bernd vs. Claude</title>
+<title>Lotto-Duell — Claude · Astra · Bernd</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
@@ -25,7 +25,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .card-lbl { font-size:10px; letter-spacing:2.5px; color:var(--accent); text-transform:uppercase; font-weight:700; margin-bottom:12px; }
 
 /* scoreboard */
-.duel { display:flex; align-items:center; gap:10px; }
+.duel { display:flex; align-items:center; gap:6px; }
+.duel-side { min-width:0; }
 .duel-side { flex:1; text-align:center; padding:12px 6px; border-radius:14px; background:var(--s2); border:1px solid var(--border); }
 .duel-side.leader { border-color:var(--accent); box-shadow:0 0 14px rgba(251,191,36,.15); }
 .duel-name { font-size:13px; font-weight:800; margin-bottom:2px; }
@@ -43,6 +44,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .badge { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:800; }
 .badge.b { background:rgba(59,130,246,.18); color:#7fb1ff; }
 .badge.c { background:rgba(245,158,11,.18); color:var(--accent); }
+.badge.a { background:rgba(74,222,128,.16); color:var(--green); }
 .badge.n { background:var(--s3); color:var(--muted); }
 
 /* week score strip */
@@ -52,9 +54,10 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .wk-score .side { flex:1; padding:10px 8px; text-align:center; }
 .wk-score .side.b { background:rgba(59,130,246,.10); }
 .wk-score .side.c { background:rgba(245,158,11,.08); }
+.wk-score .side.a { background:rgba(74,222,128,.07); }
 .wk-score .side.winner { box-shadow:inset 0 0 0 2px var(--accent); }
 .s-name { font-size:11px; font-weight:800; margin-bottom:2px; }
-.side.b .s-name { color:#7fb1ff; } .side.c .s-name { color:var(--accent); }
+.side.b .s-name { color:#7fb1ff; } .side.c .s-name { color:var(--accent); } .side.a .s-name { color:var(--green); }
 .s-eur { font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
 /* game sections */
 .g-sec { margin-bottom:16px; }
@@ -65,6 +68,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .chip { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
 .chip.b { background:rgba(59,130,246,.18); color:#7fb1ff; }
 .chip.c { background:rgba(245,158,11,.18); color:var(--accent); }
+.chip.a { background:rgba(74,222,128,.16); color:var(--green); }
 .t-nums { flex:1; font-size:14px; font-weight:600; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
 .t-nums .dim { color:var(--muted); font-weight:500; }
 .t-nums.missing { color:var(--muted); font-style:italic; font-weight:400; font-size:13px; }
@@ -110,6 +114,7 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 .seg button { flex:1; padding:8px 4px; border:none; border-radius:9px; background:none; color:var(--muted); font-size:13px; font-weight:700; cursor:pointer; }
 .seg button.on { background:var(--accent); color:#1a1405; }
 .seg button.on.b { background:var(--blue); color:#fff; }
+.seg button.on.a { background:var(--green); color:#06301a; }
 .err { color:var(--red); font-size:12px; margin-top:6px; min-height:15px; }
 .footer { padding:6px 16px 30px; display:flex; gap:8px; }
 .footer .btn { font-size:12px; padding:9px; }
@@ -160,7 +165,8 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 'use strict';
 const LS_KEY = 'lottoduell.v1';
 const GAME_NAMES = { lotto:'6aus49', gs:'Glücksspirale', ej:'Eurojackpot' };
-const PLAYERS = { B:'Bernd', C:'Claude' };
+const PLAYERS = { C:'Claude', A:'Astra', B:'Bernd' }; // Astra = ChatGPT, joined in week 6 (7.9.2026)
+const PLAYER_ORDER = ['C', 'A', 'B'];             // Bernd is always the last player
 
 /* ---------- prize tables: [amount, isEstimate] ---------- */
 const Q49 = {1:[10000000,true],2:[600000,true],3:[10000,true],4:[3500,true],5:[190,true],6:[42,true],7:[21,true],8:[11,true],9:[6,false]};
@@ -389,6 +395,50 @@ let state = load();
     const bgs = w.tickets.find(t => t.game === 'gs' && t.losnr === '4897135');
     if (bgs && (!bgs.s77 || !bgs.s6)) { bgs.s77 = bgs.s6 = true; changed = true; }
   }
+
+  // v16 — week 6 (Spielwoche ab Mo 7.9.2026): three players. Astra (ChatGPT) joins; Bernd is
+  // always the last player. Per the Lotto24 receipts of 07.09.2026 (16:59 / 17:03 / 17:05):
+  // three separate 6aus49 Scheine (Mi 9.9., each 3 Felder with own Superzahl + Losnr with
+  // Spiel 77 + Super 6, 8,85 € each), three separate Eurojackpot Scheine (Di 8.9., 7,40 € each)
+  // and ONE Glücksspirale Schein with three Lose, all with Spiel 77 + Super 6 (Sa 12.9., 31,35 €):
+  // Los 1 7421839 -> Astra, Los 2 1618033 (golden ratio, Claude's wish) -> Claude, Los 3 4642197 -> Bernd.
+  // EJ/6aus49 Schein assignment: Claude = the Schein with Claude's picked numbers; of the two
+  // others the receipt shown last is Bernd's (Losnr 1942577 / 1878968). Week stake 80,10 €.
+  {
+    const L6 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E6 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w6 = state.weeks.find(w => w.start === '2026-09-07');
+    if (!w6) {
+      w6 = { id:uid(), start:'2026-09-07', stake:80.10, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w6); changed = true;
+    }
+    if (w6.stake !== 80.10) { w6.stake = 80.10; changed = true; }
+    if (!w6.tickets.some(t => t.game === 'lotto')) {
+      w6.tickets.push(
+        Object.assign(L6('C', [9,10,17,22,32,48], 1), { losnr:'4771421', s77:true, s6:true }),
+        L6('C', [14,17,20,31,42,44], 1), L6('C', [5,7,20,23,28,44], 1),
+        Object.assign(L6('A', [11,19,31,34,37,41], 9), { losnr:'8385099', s77:true, s6:true }),
+        L6('A', [1,19,27,36,42,48], 9), L6('A', [1,10,22,32,33,38], 9),
+        Object.assign(L6('B', [5,10,25,32,38,41], 8), { losnr:'1878968', s77:true, s6:true }),
+        L6('B', [6,9,13,24,32,33], 8), L6('B', [10,12,19,25,34,38], 8));
+      changed = true;
+    }
+    if (!w6.tickets.some(t => t.game === 'ej')) {
+      w6.tickets.push(
+        E6('C', [10,28,33,40,46], [2,12]), E6('C', [9,13,25,27,42], [6,7]), E6('C', [2,16,39,40,49], [4,11]),
+        E6('A', [3,19,22,27,29], [3,5]), E6('A', [12,15,31,35,36], [3,10]), E6('A', [23,27,28,36,37], [2,4]),
+        E6('B', [12,15,25,47,50], [10,11]), E6('B', [4,17,23,29,41], [4,6]), E6('B', [12,16,24,38,39], [9,11]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['A','7421839'], ['C','1618033'], ['B','4642197']]) {
+      if (!w6.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w6.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
+    }
+  }
   if (changed) localStorage.setItem(LS_KEY, JSON.stringify(state));
 })();
 function load() {
@@ -491,9 +541,23 @@ function ticketWins(week, t) {
   return wins;
 }
 function weekTotals(week) {
-  const tot = { B:0, C:0 };
-  for (const t of week.tickets) for (const w of ticketWins(week, t)) tot[t.player] += w.amount;
+  const tot = {};
+  for (const p of PLAYER_ORDER) tot[p] = 0;
+  for (const t of week.tickets) for (const w of ticketWins(week, t)) tot[t.player] = (tot[t.player] || 0) + w.amount;
   return tot;
+}
+// players who actually hold tickets in a week (Astra only from week 6 on), in display order
+function weekPlayers(week) {
+  const has = new Set(week.tickets.map(t => t.player));
+  return PLAYER_ORDER.filter(p => has.has(p));
+}
+// the single top scorer of a finished week, or null when the top is shared
+function weekWinner(week, tot) {
+  const ps = weekPlayers(week);
+  if (!ps.length) return null;
+  const max = Math.max(...ps.map(p => tot[p] || 0));
+  const top = ps.filter(p => (tot[p] || 0) === max);
+  return top.length === 1 ? top[0] : null;
 }
 function drawKeysFor(t) {
   if (t.game === 'lotto') return t.draws === 'beide' ? ['mi49','sa49'] : [t.draws === 'mi' ? 'mi49' : 'sa49'];
@@ -537,19 +601,22 @@ function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&
 
 /* ---------- render ---------- */
 function render() {
-  const totB = { win:0, weeks:0 }, totC = { win:0, weeks:0 };
+  const tots = {};
+  for (const p of PLAYER_ORDER) tots[p] = { win:0, weeks:0 };
   let stake = 0;
   for (const w of state.weeks) {
     stake += w.stake || 0;
     const t = weekTotals(w);
-    totB.win += t.B; totC.win += t.C;
-    if (weekStatus(w) === 'done') { if (t.B > t.C) totB.weeks++; else if (t.C > t.B) totC.weeks++; }
+    for (const p of PLAYER_ORDER) tots[p].win += t[p] || 0;
+    if (weekStatus(w) === 'done') { const win = weekWinner(w, t); if (win) tots[win].weeks++; }
   }
-  const lead = totB.win === totC.win ? null : (totB.win > totC.win ? 'B' : 'C');
+  const maxWin = Math.max(...PLAYER_ORDER.map(p => tots[p].win));
+  const leaders = PLAYER_ORDER.filter(p => tots[p].win === maxWin);
+  const lead = leaders.length === 1 ? leaders[0] : null;
   document.getElementById('scoreboard').innerHTML =
-    sideHTML('Bernd', totB, lead === 'B', 'b') + '<div class="duel-vs">VS</div>' + sideHTML('Claude', totC, lead === 'C', 'c');
+    PLAYER_ORDER.map(p => sideHTML(PLAYERS[p], tots[p], lead === p, p.toLowerCase())).join('<div class="duel-vs">VS</div>');
   document.getElementById('totals').innerHTML =
-    '<span>Einsatz gesamt: <b>' + eur(stake) + '</b></span><span>Rückfluss: <b>' + eur(totB.win + totC.win) + '</b></span>';
+    '<span>Einsatz gesamt: <b>' + eur(stake) + '</b></span><span>Rückfluss: <b>' + eur(PLAYER_ORDER.reduce((a, p) => a + tots[p].win, 0)) + '</b></span>';
   const as = document.getElementById('autoStatus');
   if (as) as.textContent = !autoInfo ? 'Ergebnisse: lade …'
     : (autoInfo.error ? 'Ergebnisse: offline (manuelle Eingabe möglich)'
@@ -564,12 +631,12 @@ function weekHTML(w) {
   const t = weekTotals(w), info = weekDrawInfo(w), status = info.status;
   let label = 'Ergebnisse ausstehend', cls = '';
   if (status === 'partial') label = 'Zwischenstand · ' + info.present.length + ' von ' + info.needed.length + ' Ziehungen';
-  else if (status === 'done') { cls = ' done'; label = t.B === t.C ? '🏁 Endstand — Unentschieden' : '🏁 Endstand'; }
-  const bWin = status === 'done' && t.B > t.C, cWin = status === 'done' && t.C > t.B;
+  const winner = status === 'done' ? weekWinner(w, t) : null;
+  if (status === 'done') { cls = ' done'; label = winner ? '🏁 Endstand' : '🏁 Endstand — Unentschieden'; }
   const score = '<div class="wk-status' + cls + '">' + label + '</div>' +
     '<div class="wk-score">' +
-    '<div class="side b' + (bWin ? ' winner' : '') + '"><div class="s-name">' + (bWin ? '🏆 ' : '') + 'Bernd</div><div class="s-eur">' + eur(t.B) + '</div></div>' +
-    '<div class="side c' + (cWin ? ' winner' : '') + '"><div class="s-name">' + (cWin ? '🏆 ' : '') + 'Claude</div><div class="s-eur">' + eur(t.C) + '</div></div></div>';
+    weekPlayers(w).map(p => '<div class="side ' + p.toLowerCase() + (winner === p ? ' winner' : '') + '"><div class="s-name">' +
+      (winner === p ? '🏆 ' : '') + PLAYERS[p] + '</div><div class="s-eur">' + eur(t[p] || 0) + '</div></div>').join('') + '</div>';
   const secs = ['lotto','ej','gs'].filter(g => w.tickets.some(x => x.game === g)).map(g => sectionHTML(w, g)).join('');
   return '<div class="card"><div class="wk-head"><div class="wk-title">Spielwoche ab ' + fmtDate(w.start) + '</div>' +
     '<div class="wk-stake">Einsatz ' + eur(w.stake || 0) + '</div></div>' + score + secs +
@@ -598,7 +665,7 @@ function drawLine(w, g) {
   return parts.map(esc).join('<br>');
 }
 function sectionHTML(w, g) {
-  const order = { B:0, C:1 };
+  const order = {}; PLAYER_ORDER.forEach((p, i) => { order[p] = i; });
   const rows = w.tickets.filter(x => x.game === g).sort((a, b) => order[a.player] - order[b.player])
     .map(x => rowHTML(w, x)).join('');
   return '<div class="g-sec"><div class="g-head">' + GAME_NAMES[g] + '</div>' +
@@ -739,7 +806,7 @@ function closeTk() { document.getElementById('tkDialog').close(); }
 function renderSegs() {
   document.getElementById('segGame').innerHTML = Object.keys(GAME_NAMES).map(g =>
     '<button class="' + (dlg.game === g ? 'on' : '') + '" onclick="dlg.game=\'' + g + '\';renderSegs();renderTkFields()">' + GAME_NAMES[g] + '</button>').join('');
-  document.getElementById('segPlayer').innerHTML = ['B','C'].map(p =>
+  document.getElementById('segPlayer').innerHTML = PLAYER_ORDER.map(p =>
     '<button class="' + (dlg.player === p ? 'on ' + p.toLowerCase() : '') + '" onclick="dlg.player=\'' + p + '\';renderSegs()">' + PLAYERS[p] + '</button>').join('');
 }
 function renderTkFields() {
@@ -902,7 +969,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 15;
+const APP_VERSION = 16;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
