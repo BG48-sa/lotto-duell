@@ -180,15 +180,17 @@ const LEJ  = {1:'5 + 2 EZ',2:'5 + 1 EZ',3:'5 + 0 EZ',4:'4 + 2 EZ',5:'4 + 1 EZ',6
 /* ---------- state ---------- */
 let restoredFromStorage = false;
 let state = load();
-// one-time corrections for week 1 per the Lotto24 receipts of 04.08.2026 (idempotent)
+// Seeds and receipt corrections below are idempotent (per week and game). SEED_VERSION
+// marks the newest seed block: a save that has already seen it is left untouched, so
+// manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
+// applied once on every install, including the phone. Bump it when adding a seed block.
+const SEED_VERSION = 6; // week 6 (Mo 7.9.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
     if (!w.results.ejdi) { w.results.ejdi = { nums:[], euros:[] }; changed = true; }
   }
-  // Existing saves (including imported backups) are authoritative. Historical
-  // tickets and receipt corrections are only applied when creating a fresh save.
-  if (restoredFromStorage) {
+  if (restoredFromStorage && state.seedVersion >= SEED_VERSION) {
     if (changed) localStorage.setItem(LS_KEY, JSON.stringify(state));
     return;
   }
@@ -446,6 +448,7 @@ let state = load();
       }
     }
   }
+  if (state.seedVersion !== SEED_VERSION) { state.seedVersion = SEED_VERSION; changed = true; }
   if (changed) localStorage.setItem(LS_KEY, JSON.stringify(state));
 })();
 function load() {
@@ -1004,7 +1007,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
