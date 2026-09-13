@@ -182,7 +182,7 @@ const GAME_NAMES = { lotto:'6aus49', gs:'Glücksspirale', ej:'Eurojackpot' };
 // Bernd played weeks 1–6 himself and from week 7 on only buys the tickets — he stays
 // last in the order and keeps his history in the overall standings.
 const PLAYERS = { C:'Claude', A:'Astra', G:'Gemini', X:'Grok', B:'Bernd' };
-const PLAYER_ORDER = ['C', 'A', 'G', 'X', 'B'];
+const PLAYER_ORDER = ['A', 'C', 'G', 'X', 'B']; // alphabetical from week 7 (Bernd's wish), Bernd last
 
 /* ---------- prize tables: [amount, isEstimate] ---------- */
 const Q49 = {1:[10000000,true],2:[600000,true],3:[10000,true],4:[3500,true],5:[190,true],6:[42,true],7:[21,true],8:[11,true],9:[6,false]};
@@ -200,7 +200,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 6; // week 6 (Mo 7.9.2026)
+const SEED_VERSION = 7; // week 7 (Mo 14.9.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -460,6 +460,45 @@ const SEED_VERSION = 6; // week 6 (Mo 7.9.2026)
     for (const [p, losnr] of [['A','7421839'], ['C','1618033'], ['B','4642197']]) {
       if (!w6.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
         w6.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
+    }
+  }
+  // v21 — week 7 (Spielwoche ab Mo 14.9.2026): FOUR AI players, Bernd only buys the tickets.
+  // Picks as sent by Bernd on 13.9.2026 (Astra, Gemini, Grok) and Claude's own picks. Per player:
+  // own 6aus49 Schein (2 Felder, Mi 16.9., Losnr with Spiel 77 + Super 6), own Eurojackpot Schein
+  // (2 Felder, Di 15.9.) and one Glücksspirale Los with Spiel 77 + Super 6 (Sa 19.9.).
+  // PROVISIONAL until the Lotto24 receipts arrive: the Losnummern are the players' wishes
+  // (Grok's SZ 6 = last digit of his Losnr) and the stake is the expected 4 × 23,20 € = 92,80 €.
+  {
+    const L7 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E7 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w7 = state.weeks.find(w => w.start === '2026-09-14');
+    if (!w7) {
+      w7 = { id:uid(), start:'2026-09-14', stake:92.80, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w7); changed = true;
+    }
+    if (!w7.tickets.some(t => t.game === 'lotto')) {
+      w7.tickets.push(
+        Object.assign(L7('A', [6,16,19,25,26,46], 2), { losnr:'6850032', s77:true, s6:true }), L7('A', [12,13,19,24,30,42], 2),
+        Object.assign(L7('C', [4,17,21,22,34,48], 3), { losnr:'1414213', s77:true, s6:true }), L7('C', [13,23,29,39,44,46], 3),
+        Object.assign(L7('G', [7,14,21,33,40,48], 4), { losnr:'7419524', s77:true, s6:true }), L7('G', [3,11,19,26,38,45], 4),
+        Object.assign(L7('X', [4,11,17,26,38,49], 6), { losnr:'4202026', s77:true, s6:true }), L7('X', [7,19,23,32,40,46], 6));
+      changed = true;
+    }
+    if (!w7.tickets.some(t => t.game === 'ej')) {
+      w7.tickets.push(
+        E7('A', [3,6,24,30,39], [3,5]),  E7('A', [7,9,12,18,27], [6,11]),
+        E7('C', [3,8,16,36,38], [3,5]),  E7('C', [8,17,22,43,49], [9,11]),
+        E7('G', [5,12,23,37,44], [3,9]), E7('G', [8,16,29,34,49], [2,7]),
+        E7('X', [8,16,27,39,48], [2,9]), E7('X', [2,13,22,34,50], [6,11]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['A','0686939'], ['C','1732050'], ['G','8306291'], ['X','1378426']]) {
+      if (!w7.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w7.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
       }
     }
@@ -1044,7 +1083,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
