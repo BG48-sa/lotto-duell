@@ -715,7 +715,7 @@ function rowHTML(w, t) {
   if (t.game === 'lotto') {
     if (t.nums.length === 6) {
       const dn = new Set(); let szHit = false;
-      drawKeysFor(t).forEach(k => { if (drawPresent(w, k)) { w.results[k].nums.forEach(n => dn.add(n)); if (t.sz !== null && w.results[k].sz === t.sz) szHit = true; } });
+      drawKeysFor(t).filter(k => k === 'mi49' || k === 'sa49').forEach(k => { if (drawPresent(w, k)) { w.results[k].nums.forEach(n => dn.add(n)); if (t.sz !== null && w.results[k].sz === t.sz) szHit = true; } });
       numsHTML = t.nums.map(n => dn.has(n) ? '<span class="hit">' + n + '</span>' : n).join(' · ') +
         ' <span class="' + (szHit ? 'hit' : 'dim') + '">SZ ' + (t.sz === null ? '–' : t.sz) + '</span>';
     }
@@ -1004,7 +1004,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
