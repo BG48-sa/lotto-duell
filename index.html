@@ -200,7 +200,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 7; // week 7 (Mo 14.9.2026)
+const SEED_VERSION = 8; // week 7 receipt corrections (13.9.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -464,12 +464,28 @@ const SEED_VERSION = 7; // week 7 (Mo 14.9.2026)
       }
     }
   }
+  // v22 — week 7 receipt corrections for installs that seeded the wish numbers with v21
+  // (idempotent: only touches the old values). Must run before the seed block below.
+  {
+    const w7 = state.weeks.find(w => w.start === '2026-09-14');
+    if (w7) for (const t of w7.tickets) {
+      if (t.game === 'lotto' && t.player === 'C' && t.losnr === '1414213') { t.losnr = '9500003'; changed = true; }
+      if (t.game === 'lotto' && t.player === 'G' && t.losnr === '7419524') { t.losnr = '2825874'; changed = true; }
+      if (t.game === 'lotto' && t.player === 'G' && t.nums.join(',') === '7,14,21,33,40,48') { t.nums = [7,14,21,33,40,44]; changed = true; }
+      if (t.game === 'gs' && t.player === 'C' && t.losnr === '1732050') { t.losnr = '1414213'; changed = true; }
+    }
+  }
   // v21 — week 7 (Spielwoche ab Mo 14.9.2026): FOUR AI players, Bernd only buys the tickets.
   // Picks as sent by Bernd on 13.9.2026 (Astra, Gemini, Grok) and Claude's own picks. Per player:
   // own 6aus49 Schein (2 Felder, Mi 16.9., Losnr with Spiel 77 + Super 6), own Eurojackpot Schein
   // (2 Felder, Di 15.9.) and one Glücksspirale Los with Spiel 77 + Super 6 (Sa 19.9.).
-  // PROVISIONAL until the Lotto24 receipts arrive: the Losnummern are the players' wishes
-  // (Grok's SZ 6 = last digit of his Losnr) and the stake is the expected 4 × 23,20 € = 92,80 €.
+  // Confirmed against the Lotto24 Spielquittungen of 13.09.2026, 17:59 (12 Scheine, 92,80 €;
+  // 16,70 € Guthaben was deducted at payment, the play value stays 92,80 €). Deviations from the
+  // wishes, receipt counts: Claude's 6aus49 Losnr is 9500003 (SZ 3), Gemini's Feld 1 was ordered
+  // as 7·14·21·33·40·44 (44 instead of 48) with Losnr 2825874, Claude's GS-Los is 1414213 (√2).
+  // Astra (6850032) and Grok (4202026) got their wished 6aus49 Losnummern; Grok's SZ 6 = last digit.
+  // EJ Losnummern (no S77/S6, not stored): Astra 7875540, Claude 2957627, Gemini 9636729, Grok 9804752.
+  // The v22 correction block ABOVE this one fixes installs that had already seeded the wishes.
   {
     const L7 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
     const E7 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
@@ -483,8 +499,8 @@ const SEED_VERSION = 7; // week 7 (Mo 14.9.2026)
     if (!w7.tickets.some(t => t.game === 'lotto')) {
       w7.tickets.push(
         Object.assign(L7('A', [6,16,19,25,26,46], 2), { losnr:'6850032', s77:true, s6:true }), L7('A', [12,13,19,24,30,42], 2),
-        Object.assign(L7('C', [4,17,21,22,34,48], 3), { losnr:'1414213', s77:true, s6:true }), L7('C', [13,23,29,39,44,46], 3),
-        Object.assign(L7('G', [7,14,21,33,40,48], 4), { losnr:'7419524', s77:true, s6:true }), L7('G', [3,11,19,26,38,45], 4),
+        Object.assign(L7('C', [4,17,21,22,34,48], 3), { losnr:'9500003', s77:true, s6:true }), L7('C', [13,23,29,39,44,46], 3),
+        Object.assign(L7('G', [7,14,21,33,40,44], 4), { losnr:'2825874', s77:true, s6:true }), L7('G', [3,11,19,26,38,45], 4),
         Object.assign(L7('X', [4,11,17,26,38,49], 6), { losnr:'4202026', s77:true, s6:true }), L7('X', [7,19,23,32,40,46], 6));
       changed = true;
     }
@@ -496,7 +512,7 @@ const SEED_VERSION = 7; // week 7 (Mo 14.9.2026)
         E7('X', [8,16,27,39,48], [2,9]), E7('X', [2,13,22,34,50], [6,11]));
       changed = true;
     }
-    for (const [p, losnr] of [['A','0686939'], ['C','1732050'], ['G','8306291'], ['X','1378426']]) {
+    for (const [p, losnr] of [['A','0686939'], ['C','1414213'], ['G','8306291'], ['X','1378426']]) {
       if (!w7.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
         w7.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
@@ -1083,7 +1099,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 21;
+const APP_VERSION = 22;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
