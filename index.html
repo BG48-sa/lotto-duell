@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#151322">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>Lotto-Duell — Claude · Astra · Bernd</title>
+<title>Lotto-Duell — Claude · Astra · Gemini · Grok</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
@@ -24,15 +24,15 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .card { background:var(--s1); border:1px solid var(--border); border-radius:18px; padding:16px; margin-bottom:14px; }
 .card-lbl { font-size:10px; letter-spacing:2.5px; color:var(--accent); text-transform:uppercase; font-weight:700; margin-bottom:12px; }
 
-/* scoreboard */
-.duel { display:flex; align-items:center; gap:6px; }
-.duel-side { min-width:0; }
-.duel-side { flex:1; text-align:center; padding:12px 6px; border-radius:14px; background:var(--s2); border:1px solid var(--border); }
-.duel-side.leader { border-color:var(--accent); box-shadow:0 0 14px rgba(251,191,36,.15); }
-.duel-name { font-size:13px; font-weight:800; margin-bottom:2px; }
-.duel-eur { font-size:22px; font-weight:800; }
-.duel-weeks { font-size:11px; color:var(--muted); margin-top:2px; }
-.duel-vs { font-size:12px; font-weight:800; color:var(--muted); }
+/* scoreboard: ranked table (4 AI players from week 7 + Bernd's history) */
+.lb { display:flex; flex-direction:column; gap:6px; }
+.lb-row { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:12px; background:var(--s2); border:1px solid var(--border); }
+.lb-row.leader { border-color:var(--accent); box-shadow:0 0 14px rgba(251,191,36,.15); }
+.lb-row.out { opacity:.55; }
+.lb-rank { width:18px; font-size:12px; font-weight:800; color:var(--muted); text-align:right; flex-shrink:0; }
+.lb-name { flex:1; min-width:0; }
+.lb-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+.lb-eur { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .tot-row { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:12px; }
 .tot-row b { color:var(--text); }
 
@@ -45,6 +45,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .badge.b { background:rgba(59,130,246,.18); color:#7fb1ff; }
 .badge.c { background:rgba(245,158,11,.18); color:var(--accent); }
 .badge.a { background:rgba(74,222,128,.16); color:var(--green); }
+.badge.g { background:rgba(192,132,252,.18); color:#c084fc; }
+.badge.x { background:rgba(226,232,240,.16); color:#e2e8f0; }
 .badge.n { background:var(--s3); color:var(--muted); }
 
 /* week score strip */
@@ -55,9 +57,14 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .wk-score .side.b { background:rgba(59,130,246,.10); }
 .wk-score .side.c { background:rgba(245,158,11,.08); }
 .wk-score .side.a { background:rgba(74,222,128,.07); }
+.wk-score .side.g { background:rgba(192,132,252,.08); }
+.wk-score .side.x { background:rgba(226,232,240,.06); }
+/* four or more players: 2-column grid of tiles instead of one strip */
+.wk-score.grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; border:none; border-radius:0; overflow:visible; }
+.wk-score.grid .side { border:1px solid var(--border); border-radius:12px; }
 .wk-score .side.winner { box-shadow:inset 0 0 0 2px var(--accent); }
 .s-name { font-size:11px; font-weight:800; margin-bottom:2px; }
-.side.b .s-name { color:#7fb1ff; } .side.c .s-name { color:var(--accent); } .side.a .s-name { color:var(--green); }
+.side.b .s-name { color:#7fb1ff; } .side.c .s-name { color:var(--accent); } .side.a .s-name { color:var(--green); } .side.g .s-name { color:#c084fc; } .side.x .s-name { color:#e2e8f0; }
 .s-eur { font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
 /* game sections */
 .g-sec { margin-bottom:16px; }
@@ -69,6 +76,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .chip.b { background:rgba(59,130,246,.18); color:#7fb1ff; }
 .chip.c { background:rgba(245,158,11,.18); color:var(--accent); }
 .chip.a { background:rgba(74,222,128,.16); color:var(--green); }
+.chip.g { background:rgba(192,132,252,.18); color:#c084fc; }
+.chip.x { background:rgba(226,232,240,.16); color:#e2e8f0; }
 .t-nums { flex:1; font-size:14px; font-weight:600; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
 .t-nums .dim { color:var(--muted); font-weight:500; }
 .t-nums.missing { color:var(--muted); font-style:italic; font-weight:400; font-size:13px; }
@@ -115,6 +124,10 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 .seg button.on { background:var(--accent); color:#1a1405; }
 .seg button.on.b { background:var(--blue); color:#fff; }
 .seg button.on.a { background:var(--green); color:#06301a; }
+.seg button.on.g { background:#c084fc; color:#2a0a4a; }
+.seg button.on.x { background:#e2e8f0; color:#111827; }
+.seg.players { flex-wrap:wrap; }
+.seg.players button { flex:1 0 30%; }
 .err { color:var(--red); font-size:12px; margin-top:6px; min-height:15px; }
 .footer { padding:6px 16px 30px; display:flex; gap:8px; }
 .footer .btn { font-size:12px; padding:9px; }
@@ -123,14 +136,14 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 </head>
 <body>
 <div class="header">
-  <div class="header-sub">Wöchentliches Duell</div>
+  <div class="header-sub">Wöchentliches KI-Duell</div>
   <div class="header-title">🎰 Lotto-Duell</div>
 </div>
 
 <div class="wrap">
   <div class="card">
     <div class="card-lbl">Gesamtstand</div>
-    <div class="duel" id="scoreboard"></div>
+    <div class="lb" id="scoreboard"></div>
     <div class="tot-row" id="totals"></div>
     <div class="tot-row" style="align-items:center"><span id="autoStatus"></span>
       <button class="res-toggle" style="padding:0" id="reloadBtn" onclick="fetchResults(true)">⟳ Ergebnisse laden</button></div>
@@ -151,7 +164,7 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
   <div class="d-field"><label>Spiel</label>
     <div class="seg" id="segGame"></div></div>
   <div class="d-field"><label>Spieler</label>
-    <div class="seg" id="segPlayer"></div></div>
+    <div class="seg players" id="segPlayer"></div></div>
   <div id="tkFields"></div>
   <div class="err" id="tkErr"></div>
   <div class="btn-row">
@@ -165,8 +178,11 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 'use strict';
 const LS_KEY = 'lottoduell.v1';
 const GAME_NAMES = { lotto:'6aus49', gs:'Glücksspirale', ej:'Eurojackpot' };
-const PLAYERS = { C:'Claude', A:'Astra', B:'Bernd' }; // Astra = ChatGPT, joined in week 6 (7.9.2026)
-const PLAYER_ORDER = ['C', 'A', 'B'];             // Bernd is always the last player
+// Astra = ChatGPT (from week 6, 7.9.2026); Gemini + Grok join in week 7 (14.9.2026).
+// Bernd played weeks 1–6 himself and from week 7 on only buys the tickets — he stays
+// last in the order and keeps his history in the overall standings.
+const PLAYERS = { C:'Claude', A:'Astra', G:'Gemini', X:'Grok', B:'Bernd' };
+const PLAYER_ORDER = ['C', 'A', 'G', 'X', 'B'];
 
 /* ---------- prize tables: [amount, isEstimate] ---------- */
 const Q49 = {1:[10000000,true],2:[600000,true],3:[10000,true],4:[3500,true],5:[190,true],6:[42,true],7:[21,true],8:[11,true],9:[6,false]};
@@ -649,8 +665,14 @@ function render() {
   const maxWin = Math.max(...PLAYER_ORDER.map(p => tots[p].win));
   const leaders = PLAYER_ORDER.filter(p => tots[p].win === maxWin);
   const lead = leaders.length === 1 ? leaders[0] : null;
-  document.getElementById('scoreboard').innerHTML =
-    PLAYER_ORDER.map(p => sideHTML(PLAYERS[p], tots[p], lead === p, p.toLowerCase())).join('<div class="duel-vs">VS</div>');
+  const active = activePlayers();
+  const ranked = PLAYER_ORDER.slice().sort((a, b) =>
+    tots[b].win - tots[a].win || tots[b].weeks - tots[a].weeks || PLAYER_ORDER.indexOf(a) - PLAYER_ORDER.indexOf(b));
+  let rank = 0;
+  document.getElementById('scoreboard').innerHTML = ranked.map((p, i) => {
+    if (i === 0 || tots[p].win !== tots[ranked[i - 1]].win) rank = i + 1;
+    return lbRowHTML(p, rank, tots[p], lead === p, playerStatus(p, active));
+  }).join('');
   document.getElementById('totals').innerHTML =
     '<span>Einsatz gesamt: <b>' + eur(stake) + '</b></span><span>Rückfluss: <b>' + eur(PLAYER_ORDER.reduce((a, p) => a + tots[p].win, 0)) + '</b></span>';
   const as = document.getElementById('autoStatus');
@@ -659,9 +681,23 @@ function render() {
     : 'Ergebnisse automatisch · Stand ' + String(autoInfo.updated).replace('T', ' ').slice(0, 16));
   document.getElementById('weeks').innerHTML = state.weeks.slice().reverse().map(weekHTML).join('');
 }
-function sideHTML(name, tot, leader, cls) {
-  return '<div class="duel-side' + (leader ? ' leader' : '') + '"><div class="duel-name"><span class="badge ' + cls + '">' + name + '</span></div>' +
-    '<div class="duel-eur">' + eur(tot.win) + '</div><div class="duel-weeks">' + tot.weeks + ' Woche' + (tot.weeks === 1 ? '' : 'n') + ' gewonnen</div></div>';
+// players holding tickets in the most recent Spielwoche that has any tickets
+function activePlayers() {
+  const withTickets = state.weeks.filter(w => w.tickets.length).sort((a, b) => (a.start < b.start ? 1 : -1));
+  return new Set(withTickets.length ? withTickets[0].tickets.map(t => t.player) : []);
+}
+// '' = plays in the current week, 'out' = played earlier but not any more, 'new' = no tickets yet
+function playerStatus(p, active) {
+  if (active.has(p)) return '';
+  return state.weeks.some(w => w.tickets.some(t => t.player === p)) ? 'out' : 'new';
+}
+function lbRowHTML(p, rank, tot, leader, status) {
+  const note = status === 'out' ? ' · spielt nicht mehr mit' : (status === 'new' ? ' · neu dabei' : '');
+  return '<div class="lb-row' + (leader ? ' leader' : '') + (status === 'out' ? ' out' : '') + '">' +
+    '<div class="lb-rank">' + rank + '.</div>' +
+    '<div class="lb-name"><span class="badge ' + p.toLowerCase() + '">' + PLAYERS[p] + '</span>' +
+    '<div class="lb-sub">' + tot.weeks + ' Woche' + (tot.weeks === 1 ? '' : 'n') + ' gewonnen' + note + '</div></div>' +
+    '<div class="lb-eur">' + eur(tot.win) + '</div></div>';
 }
 function weekHTML(w) {
   const t = weekTotals(w), info = weekDrawInfo(w), status = info.status;
@@ -671,9 +707,10 @@ function weekHTML(w) {
     : 'Zwischenstand · ' + info.present.length + ' von ' + info.needed.length + ' Ergebnissen';
   const winner = status === 'done' ? weekWinner(w, t) : null;
   if (status === 'done') { cls = ' done'; label = winner ? '🏁 Endstand' : '🏁 Endstand — Unentschieden'; }
+  const ps = weekPlayers(w);
   const score = '<div class="wk-status' + cls + '">' + label + '</div>' +
-    '<div class="wk-score">' +
-    weekPlayers(w).map(p => '<div class="side ' + p.toLowerCase() + (winner === p ? ' winner' : '') + '"><div class="s-name">' +
+    '<div class="wk-score' + (ps.length > 3 ? ' grid' : '') + '">' +
+    ps.map(p => '<div class="side ' + p.toLowerCase() + (winner === p ? ' winner' : '') + '"><div class="s-name">' +
       (winner === p ? '🏆 ' : '') + PLAYERS[p] + '</div><div class="s-eur">' + eur(t[p] || 0) + '</div></div>').join('') + '</div>';
   const secs = ['lotto','ej','gs'].filter(g => w.tickets.some(x => x.game === g)).map(g => sectionHTML(w, g)).join('');
   return '<div class="card"><div class="wk-head"><div class="wk-title">Spielwoche ab ' + fmtDate(w.start) + '</div>' +
@@ -826,9 +863,9 @@ function editWin(wid, tid, key) {
 }
 
 /* ---------- ticket dialog ---------- */
-let dlg = { wid:null, tid:null, game:'lotto', player:'B' };
+let dlg = { wid:null, tid:null, game:'lotto', player:PLAYER_ORDER[0] };
 function openTk(wid, tid) {
-  dlg = { wid, tid: tid || null, game:'lotto', player:'B' };
+  dlg = { wid, tid: tid || null, game:'lotto', player:PLAYER_ORDER[0] };
   const w = state.weeks.find(x => x.id === wid);
   if (tid) {
     const t = w.tickets.find(x => x.id === tid);
@@ -1007,7 +1044,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
