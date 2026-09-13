@@ -178,12 +178,19 @@ const QEJ  = {1:[15000000,true],2:[1200000,true],3:[120000,true],4:[4500,true],5
 const LEJ  = {1:'5 + 2 EZ',2:'5 + 1 EZ',3:'5 + 0 EZ',4:'4 + 2 EZ',5:'4 + 1 EZ',6:'3 + 2 EZ',7:'4 + 0 EZ',8:'2 + 2 EZ',9:'3 + 1 EZ',10:'3 + 0 EZ',11:'1 + 2 EZ',12:'2 + 1 EZ'};
 
 /* ---------- state ---------- */
+let restoredFromStorage = false;
 let state = load();
 // one-time corrections for week 1 per the Lotto24 receipts of 04.08.2026 (idempotent)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
     if (!w.results.ejdi) { w.results.ejdi = { nums:[], euros:[] }; changed = true; }
+  }
+  // Existing saves (including imported backups) are authoritative. Historical
+  // tickets and receipt corrections are only applied when creating a fresh save.
+  if (restoredFromStorage) {
+    if (changed) localStorage.setItem(LS_KEY, JSON.stringify(state));
+    return;
   }
   for (const w of state.weeks) {
     if (w.start !== '2026-08-03') continue;
@@ -442,7 +449,7 @@ let state = load();
   if (changed) localStorage.setItem(LS_KEY, JSON.stringify(state));
 })();
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && s.version === 1) return s; } catch(e) {}
+  try { const s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && s.version === 1 && Array.isArray(s.weeks)) { restoredFromStorage = true; return s; } } catch(e) {}
   return seed();
 }
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); render(); }
@@ -476,21 +483,21 @@ function tailMatch(losnr, drawn) { // longest common suffix length
   return k;
 }
 function class49(nums, sz, draw) {
-  if (!draw.nums || draw.nums.length !== 6 || !nums || nums.length !== 6) return null;
+  if (!validNumbers(draw.nums, 6, 49) || !Number.isInteger(draw.sz) || draw.sz < 0 || draw.sz > 9 || !validNumbers(nums, 6, 49)) return null;
   const hits = nums.filter(n => draw.nums.includes(n)).length;
   const s = sz !== null && draw.sz !== null && Number(sz) === Number(draw.sz);
   const map = {'6t':1,'6f':2,'5t':3,'5f':4,'4t':5,'4f':6,'3t':7,'3f':8,'2t':9};
   return map[hits + (s ? 't' : 'f')] || null;
 }
 function classEJ(t, draw) {
-  if (!draw.nums || draw.nums.length !== 5 || !t.nums || t.nums.length !== 5) return null;
+  if (!validNumbers(draw.nums, 5, 50) || !validNumbers(draw.euros, 2, 12) || !validNumbers(t.nums, 5, 50) || !validNumbers(t.euros, 2, 12)) return null;
   const n = t.nums.filter(x => draw.nums.includes(x)).length;
   const e = (t.euros || []).filter(x => (draw.euros || []).includes(x)).length;
   const map = {'5,2':1,'5,1':2,'5,0':3,'4,2':4,'4,1':5,'3,2':6,'4,0':7,'2,2':8,'3,1':9,'3,0':10,'1,2':11,'2,1':12};
   return map[n + ',' + e] || null;
 }
 function gsClass(losnr, gs) {
-  if (!losnr || losnr.length !== 7) return null;
+  if (!validDigits(losnr, 7) || !gsComplete(gs)) return null;
   let best = null;
   if (gs.k7a && tail(losnr,7) === gs.k7a) best = 7;
   else if (gs.k7b && tail(losnr,7) === gs.k7b) best = 7;
@@ -559,25 +566,51 @@ function weekWinner(week, tot) {
   const top = ps.filter(p => (tot[p] || 0) === max);
   return top.length === 1 ? top[0] : null;
 }
+function validNumbers(nums, count, max) {
+  return Array.isArray(nums) && nums.length === count && new Set(nums).size === count &&
+    nums.every(n => Number.isInteger(n) && n >= 1 && n <= max);
+}
+function validDigits(value, count) {
+  return typeof value === 'string' && value.length === count && /^\d+$/.test(value);
+}
+function gsComplete(gs) {
+  return !!gs && [1,2,3,4,5].every(k => validDigits(gs['k' + k], k)) &&
+    validDigits(gs.k6a, 6) && validDigits(gs.k6b, 6) && validDigits(gs.k7a, 7) &&
+    (!gs.k7b || validDigits(gs.k7b, 7));
+}
 function drawKeysFor(t) {
-  if (t.game === 'lotto') return t.draws === 'beide' ? ['mi49','sa49'] : [t.draws === 'mi' ? 'mi49' : 'sa49'];
-  if (t.game === 'gs') return ['gs'];
-  return [t.draws === 'di' ? 'ejdi' : 'ej'];
+  const keys = [];
+  if (t.game === 'lotto' || t.game === 'gs') {
+    const days = t.game === 'gs' ? ['sa'] : (t.draws === 'beide' ? ['mi','sa'] : [t.draws === 'mi' ? 'mi' : 'sa']);
+    if (t.game === 'gs') keys.push('gs');
+    for (const d of days) {
+      if (t.game === 'lotto') keys.push(d + '49');
+      if (t.s77) keys.push('s77' + d);
+      if (t.s6) keys.push('s6' + d);
+    }
+  } else keys.push(t.draws === 'di' ? 'ejdi' : 'ej');
+  return keys;
 }
 function drawPresent(w, key) {
   const r = w.results;
-  if (key === 'mi49' || key === 'sa49') return r[key].nums.length === 6;
-  if (key === 'gs') return !!r.gs.k1;
-  if (key === 'ejdi') return !!(r.ejdi && r.ejdi.nums.length === 5);
-  return r.ej.nums.length === 5;
+  if (key === 'mi49' || key === 'sa49') {
+    const d = r[key];
+    return !!d && validNumbers(d.nums, 6, 49) && Number.isInteger(d.sz) && d.sz >= 0 && d.sz <= 9;
+  }
+  if (key === 'gs') return gsComplete(r.gs);
+  if (key.startsWith('s77')) return validDigits(r[key], 7);
+  if (key.startsWith('s6')) return validDigits(r[key], 6);
+  const d = r[key];
+  return !!d && validNumbers(d.nums, 5, 50) && validNumbers(d.euros, 2, 12);
 }
 // draw coverage relative to the draws this week's tickets actually need
 function weekDrawInfo(w) {
   const needed = [];
   w.tickets.forEach(t => drawKeysFor(t).forEach(k => { if (!needed.includes(k)) needed.push(k); }));
   const present = needed.filter(k => drawPresent(w, k));
-  const status = !needed.length || !present.length ? 'none' : (present.length === needed.length ? 'done' : 'partial');
-  return { needed, present, status };
+  const pendingQuotas = w.tickets.some(t => ticketWins(w, t).some(win => win.approx));
+  const status = !needed.length || !present.length ? 'none' : (present.length === needed.length && !pendingQuotas ? 'done' : 'partial');
+  return { needed, present, status, pendingQuotas };
 }
 function weekStatus(w) { return weekDrawInfo(w).status; }
 function ticketDone(w, t) {
@@ -630,7 +663,9 @@ function sideHTML(name, tot, leader, cls) {
 function weekHTML(w) {
   const t = weekTotals(w), info = weekDrawInfo(w), status = info.status;
   let label = 'Ergebnisse ausstehend', cls = '';
-  if (status === 'partial') label = 'Zwischenstand · ' + info.present.length + ' von ' + info.needed.length + ' Ziehungen';
+  if (status === 'partial') label = info.present.length === info.needed.length && info.pendingQuotas
+    ? 'Zwischenstand · Gewinnquoten ausstehend'
+    : 'Zwischenstand · ' + info.present.length + ' von ' + info.needed.length + ' Ergebnissen';
   const winner = status === 'done' ? weekWinner(w, t) : null;
   if (status === 'done') { cls = ' done'; label = winner ? '🏁 Endstand' : '🏁 Endstand — Unentschieden'; }
   const score = '<div class="wk-status' + cls + '">' + label + '</div>' +
@@ -969,7 +1004,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 16;
+const APP_VERSION = 17;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
