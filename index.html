@@ -32,8 +32,15 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .lb-rank { width:18px; font-size:12px; font-weight:800; color:var(--muted); text-align:right; flex-shrink:0; }
 .lb-name { flex:1; min-width:0; }
 .lb-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+.lb-val { text-align:right; flex-shrink:0; }
 .lb-eur { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.tot-row { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:12px; }
+.lb-rate { font-size:11px; color:var(--muted); margin-top:3px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.lb-sort { display:flex; gap:6px; margin-bottom:8px; }
+.sort-btn { flex:1; padding:6px 8px; font-size:11px; font-weight:700; font-family:inherit; border-radius:9px; cursor:pointer;
+  background:var(--s2); color:var(--muted); border:1px solid var(--border); }
+.sort-btn.on { color:var(--text); border-color:var(--accent); }
+.tot-row { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; font-size:12px; color:var(--muted); margin-top:12px; }
+.tot-row > span { white-space:nowrap; }
 .tot-row b { color:var(--text); }
 
 /* weeks */
@@ -143,6 +150,10 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 <div class="wrap">
   <div class="card">
     <div class="card-lbl">Gesamtstand</div>
+    <div class="lb-sort">
+      <button class="sort-btn" id="sortWin" onclick="setLbMode('win')">nach Gewinn</button>
+      <button class="sort-btn" id="sortRate" onclick="setLbMode('rate')">je € Einsatz</button>
+    </div>
     <div class="lb" id="scoreboard"></div>
     <div class="tot-row" id="totals"></div>
     <div class="tot-row" style="align-items:center"><span id="autoStatus"></span>
@@ -151,7 +162,7 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
   <button class="btn solid" onclick="newWeek()">＋ Neue Spielwoche</button>
   <div style="height:10px"></div>
   <div id="weeks"></div>
-  <p class="hint">Ergebnisse und amtliche Quoten werden automatisch aus results.json geladen (Refresh-Skript holt sie von cleverlotto.de). Gewinnbeträge mit „~" sind Schätzwerte, solange die amtliche Quote noch fehlt — antippen zum manuellen Korrigieren. Glücksspirale: pro Los zählt nur die höchste Gewinnklasse; GK 7 wird mit 2,4 Mio € (10.000 €/Monat × 20 Jahre) gewertet.</p>
+  <p class="hint">Ergebnisse und amtliche Quoten werden automatisch aus results.json geladen (Refresh-Skript holt sie von cleverlotto.de). Gewinnbeträge mit „~" sind Schätzwerte, solange die amtliche Quote noch fehlt — antippen zum manuellen Korrigieren. Glücksspirale: pro Los zählt nur die höchste Gewinnklasse; GK 7 wird mit 2,4 Mio € (10.000 €/Monat × 20 Jahre) gewertet. „je € Einsatz“ zeigt, wie viel Prozent des eigenen Einsatzes zurückgekommen sind — der fairere Vergleich, wenn jemand mehr Wochen gespielt hat als die anderen. Der Einsatz je Spieler wird aus den Lotto24-Preisen der eigenen Felder, Lose und Zusatzlotterien berechnet; die Scheingebühr teilen sich die Spieler einer Woche.</p>
 </div>
 
 <div class="footer">
@@ -177,6 +188,7 @@ dialog h3 { font-size:17px; margin-bottom:14px; }
 <script>
 'use strict';
 const LS_KEY = 'lottoduell.v1';
+const LB_MODE_KEY = 'lottoduell.lb'; // scoreboard sort: 'win' or 'rate'
 const GAME_NAMES = { lotto:'6aus49', gs:'Glücksspirale', ej:'Eurojackpot' };
 // Astra = ChatGPT (from week 6, 7.9.2026); Gemini + Grok join in week 7 (14.9.2026).
 // Bernd played weeks 1–6 himself and from week 7 on only buys the tickets — he stays
@@ -706,30 +718,65 @@ function parseNums(str, count, max) {
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+/* ---------- stake per player ---------- */
+// Lotto24 price model, derived from the Spielquittungen (matches weeks 3-7 to the cent)
+const PRICE = { feld49:1.30, feldEJ:2.20, s77:2.70, s6:1.45, gs:6.30, gsZusatz:10.45 };
+function ticketPrice(t) {
+  if (t.game === 'lotto') return PRICE.feld49 + (t.s77 ? PRICE.s77 : 0) + (t.s6 ? PRICE.s6 : 0);
+  if (t.game === 'ej') return PRICE.feldEJ;
+  return ((t.s77 || t.s6) ? PRICE.gsZusatz : PRICE.gs) * (t.share || 1);
+}
+// What each player of one week paid: the item prices of their own tickets, plus an even
+// share of the rest of the week's stake (the 0,80 EUR Scheingebuehr per Schein, which
+// players may share). The per-player stakes always add up to the week's stake.
+function weekStakes(w) {
+  const out = {}, ps = weekPlayers(w);
+  if (!ps.length) return out;
+  for (const p of ps) out[p] = 0;
+  let raw = 0;
+  for (const t of w.tickets) { const c = ticketPrice(t); out[t.player] += c; raw += c; }
+  const total = w.stake || 0;
+  if (raw <= 0) { for (const p of ps) out[p] = total / ps.length; return out; }
+  if (total > raw) { const extra = (total - raw) / ps.length; for (const p of ps) out[p] += extra; }
+  else if (total > 0 && total < raw) { const f = total / raw; for (const p of ps) out[p] *= f; }
+  return out;
+}
+function pct(x) { return (x * 100).toLocaleString('de-DE', { minimumFractionDigits:1, maximumFractionDigits:1 }) + ' %'; }
+// 'win' = ranked by euros won, 'rate' = ranked by return per euro staked
+let lbMode = (function () { try { return localStorage.getItem(LB_MODE_KEY) === 'rate' ? 'rate' : 'win'; } catch (e) { return 'win'; } })();
+function setLbMode(m) { lbMode = m; try { localStorage.setItem(LB_MODE_KEY, m); } catch (e) {} render(); }
+
 /* ---------- render ---------- */
 function render() {
   const tots = {};
-  for (const p of PLAYER_ORDER) tots[p] = { win:0, weeks:0 };
+  for (const p of PLAYER_ORDER) tots[p] = { win:0, weeks:0, stake:0 };
   let stake = 0;
   for (const w of state.weeks) {
     stake += w.stake || 0;
-    const t = weekTotals(w);
-    for (const p of PLAYER_ORDER) tots[p].win += t[p] || 0;
+    const t = weekTotals(w), st = weekStakes(w);
+    for (const p of PLAYER_ORDER) { tots[p].win += t[p] || 0; tots[p].stake += st[p] || 0; }
     if (weekStatus(w) === 'done') { const win = weekWinner(w, t); if (win) tots[win].weeks++; }
   }
-  const maxWin = Math.max(...PLAYER_ORDER.map(p => tots[p].win));
-  const leaders = PLAYER_ORDER.filter(p => tots[p].win === maxWin);
+  for (const p of PLAYER_ORDER) tots[p].rate = tots[p].stake > 0 ? tots[p].win / tots[p].stake : null;
+  // ranking key: euros won, or return per euro staked (a player without a stake ranks last)
+  const key = p => Math.round((lbMode === 'rate' ? (tots[p].rate === null ? -1 : tots[p].rate) : tots[p].win) * 1e6) / 1e6;
+  const best = Math.max(...PLAYER_ORDER.map(key));
+  const leaders = PLAYER_ORDER.filter(p => key(p) === best);
   const lead = leaders.length === 1 ? leaders[0] : null;
   const active = activePlayers();
   const ranked = PLAYER_ORDER.slice().sort((a, b) =>
-    tots[b].win - tots[a].win || tots[b].weeks - tots[a].weeks || PLAYER_ORDER.indexOf(a) - PLAYER_ORDER.indexOf(b));
+    key(b) - key(a) || tots[b].weeks - tots[a].weeks || PLAYER_ORDER.indexOf(a) - PLAYER_ORDER.indexOf(b));
   let rank = 0;
   document.getElementById('scoreboard').innerHTML = ranked.map((p, i) => {
-    if (i === 0 || tots[p].win !== tots[ranked[i - 1]].win) rank = i + 1;
+    if (i === 0 || key(p) !== key(ranked[i - 1])) rank = i + 1;
     return lbRowHTML(p, rank, tots[p], lead === p, playerStatus(p, active));
   }).join('');
+  const sw = document.getElementById('sortWin'), sr = document.getElementById('sortRate');
+  if (sw && sr) { sw.classList.toggle('on', lbMode === 'win'); sr.classList.toggle('on', lbMode === 'rate'); }
+  const back = PLAYER_ORDER.reduce((a, p) => a + tots[p].win, 0);
   document.getElementById('totals').innerHTML =
-    '<span>Einsatz gesamt: <b>' + eur(stake) + '</b></span><span>Rückfluss: <b>' + eur(PLAYER_ORDER.reduce((a, p) => a + tots[p].win, 0)) + '</b></span>';
+    '<span>Einsatz gesamt: <b>' + eur(stake) + '</b></span><span>Rückfluss: <b>' + eur(back) +
+    '</b>' + (stake > 0 ? ' (' + pct(back / stake) + ')' : '') + '</span>';
   const as = document.getElementById('autoStatus');
   if (as) as.textContent = !autoInfo ? 'Ergebnisse: lade …'
     : (autoInfo.error ? 'Ergebnisse: offline (manuelle Eingabe möglich)'
@@ -748,11 +795,16 @@ function playerStatus(p, active) {
 }
 function lbRowHTML(p, rank, tot, leader, status) {
   const note = status === 'out' ? ' · spielt nicht mehr mit' : (status === 'new' ? ' · neu dabei' : '');
+  const rate = tot.rate === null ? '–' : pct(tot.rate);
+  const big = lbMode === 'rate' ? rate : eur(tot.win);
+  const small = tot.stake > 0
+    ? (lbMode === 'rate' ? eur(tot.win) + ' von ' + eur(tot.stake) : rate + ' von ' + eur(tot.stake))
+    : 'noch kein Einsatz';
   return '<div class="lb-row' + (leader ? ' leader' : '') + (status === 'out' ? ' out' : '') + '">' +
     '<div class="lb-rank">' + rank + '.</div>' +
     '<div class="lb-name"><span class="badge ' + p.toLowerCase() + '">' + PLAYERS[p] + '</span>' +
     '<div class="lb-sub">' + tot.weeks + ' Woche' + (tot.weeks === 1 ? '' : 'n') + ' gewonnen' + note + '</div></div>' +
-    '<div class="lb-eur">' + eur(tot.win) + '</div></div>';
+    '<div class="lb-val"><div class="lb-eur">' + big + '</div><div class="lb-rate">' + small + '</div></div></div>';
 }
 function weekHTML(w) {
   const t = weekTotals(w), info = weekDrawInfo(w), status = info.status;
@@ -1099,7 +1151,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
