@@ -212,7 +212,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 10; // week 9 seed (28.9.2026)
+const SEED_VERSION = 11; // week 10 seed (5.10.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -609,6 +609,47 @@ const SEED_VERSION = 10; // week 9 seed (28.9.2026)
     for (const [p, losnr] of [['A','4817296'], ['C','2236067'], ['G','4819526'], ['X','4815162'], ['B','1480894']]) {
       if (!w9.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
         w9.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
+    }
+  }
+  // v27 — week 10 (Spielwoche ab Mo 5.10.2026), five players. Confirmed against the 15 Lotto24
+  // Spielquittungen of 05.10.2026 11:20 (one order, 138,00 €), read from iCloud Mail. Buying
+  // order per the order confirmation and Bernd: Claude, Astra, Gemini, Grok, Bernd (the first
+  // block matches Claude's picks exactly). New this week: each Eurojackpot Schein has 4 Reihen.
+  // Per player: 6aus49 Mi 7.10. (2 Felder, Losnr with Spiel 77 + Super 6), Eurojackpot Di 6.10.
+  // (4 Reihen) and one Glücksspirale Los Sa 10.10. with Spiel 77 + Super 6.
+  {
+    const L10 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E10 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w10 = state.weeks.find(w => w.start === '2026-10-05');
+    if (!w10) {
+      w10 = { id:uid(), start:'2026-10-05', stake:138.00, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w10); changed = true;
+    }
+    if (!w10.tickets.some(t => t.game === 'lotto')) {
+      w10.tickets.push(
+        Object.assign(L10('C', [9,14,18,22,25,29], 9),   { losnr:'5226499', s77:true, s6:true }), L10('C', [15,26,28,35,42,46], 9),
+        Object.assign(L10('A', [7,14,23,31,38,46], 6),   { losnr:'3071596', s77:true, s6:true }), L10('A', [4,19,26,33,41,49], 6),
+        Object.assign(L10('G', [4,13,21,33,39,45], 6),   { losnr:'7600026', s77:true, s6:true }), L10('G', [7,16,24,28,41,48], 6),
+        Object.assign(L10('X', [4,21,27,38,47,48], 9),   { losnr:'1680159', s77:true, s6:true }), L10('X', [6,8,11,25,30,39], 9),
+        Object.assign(L10('B', [10,11,13,21,31,32], 5),  { losnr:'6303805', s77:true, s6:true }), L10('B', [18,23,27,33,40,42], 5));
+      changed = true;
+    }
+    if (!w10.tickets.some(t => t.game === 'ej')) {
+      w10.tickets.push(
+        E10('C', [15,18,22,28,39], [6,12]), E10('C', [6,12,13,20,25], [2,11]), E10('C', [12,14,34,43,50], [1,8]),  E10('C', [7,17,21,36,44], [5,6]),
+        E10('A', [8,17,29,36,48], [3,11]),  E10('A', [5,21,32,43,50], [6,9]),  E10('A', [18,27,29,33,41], [5,7]),  E10('A', [3,9,35,42,49], [6,8]),
+        E10('G', [5,14,23,31,44], [3,9]),   E10('G', [11,18,27,36,49], [4,11]), E10('G', [13,26,32,37,40], [2,12]), E10('G', [10,17,33,34,50], [5,8]),
+        E10('X', [4,8,15,16,29], [2,8]),    E10('X', [1,8,23,36,47], [3,7]),   E10('X', [13,22,26,30,46], [6,11]), E10('X', [6,9,24,33,50], [6,9]),
+        E10('B', [2,4,6,46,50], [3,11]),    E10('B', [20,23,26,42,44], [8,12]), E10('B', [4,41,42,43,46], [3,11]),  E10('B', [4,12,25,36,47], [6,11]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['C','3141592'], ['A','5830472'], ['G','4829153'], ['X','0080619'], ['B','3670410']]) {
+      if (!w10.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w10.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
       }
     }
@@ -1233,7 +1274,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 26;
+const APP_VERSION = 27;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
