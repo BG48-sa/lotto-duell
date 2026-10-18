@@ -212,7 +212,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 11; // week 10 seed (5.10.2026)
+const SEED_VERSION = 12; // week 12 seed (18.10.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -650,6 +650,49 @@ const SEED_VERSION = 11; // week 10 seed (5.10.2026)
     for (const [p, losnr] of [['C','3141592'], ['A','5830472'], ['G','4829153'], ['X','0080619'], ['B','3670410']]) {
       if (!w10.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
         w10.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
+    }
+  }
+  // v28 — week 12 (Spielwoche ab Mo 19.10.2026), five players; week 11 (12.10.) was skipped.
+  // Confirmed against the 15 Lotto24 Spielquittungen of 18.10.2026 (five separate orders, read
+  // from iCloud Mail): 17:38 Claude, 17:45 Astra, 17:50 Gemini, 17:57 Grok, 18:00 Bernd — the
+  // order Bernd stated, and the 17:38 block matches Claude's picks exactly. This week the
+  // Eurojackpot Scheine have different numbers of Reihen: Claude 4, Astra 4, Gemini 2, Grok 6,
+  // Bernd 5. Per player: 6aus49 Mi 21.10. (2 Felder, Losnr with Spiel 77 + Super 6), Eurojackpot
+  // Di 20.10. and one Glücksspirale Los Sa 24.10. with Spiel 77 + Super 6. Stake 140,20 €
+  // (27,60 + 27,60 + 23,20 + 32,00 + 29,80).
+  {
+    const L12 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E12 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w12 = state.weeks.find(w => w.start === '2026-10-19');
+    if (!w12) {
+      w12 = { id:uid(), start:'2026-10-19', stake:140.20, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w12); changed = true;
+    }
+    if (!w12.tickets.some(t => t.game === 'lotto')) {
+      w12.tickets.push(
+        Object.assign(L12('C', [1,13,16,19,29,45], 7),  { losnr:'6309897', s77:true, s6:true }), L12('C', [2,7,21,37,44,48], 7),
+        Object.assign(L12('A', [3,16,24,35,42,47], 5),  { losnr:'8219265', s77:true, s6:true }), L12('A', [9,18,27,34,40,48], 5),
+        Object.assign(L12('G', [7,14,21,33,40,48], 4),  { losnr:'5027034', s77:true, s6:true }), L12('G', [3,11,19,26,38,45], 4),
+        Object.assign(L12('X', [9,16,23,32,41,48], 9),  { losnr:'3051339', s77:true, s6:true }), L12('X', [2,11,18,27,35,44], 9),
+        Object.assign(L12('B', [3,6,11,12,24,27], 0),   { losnr:'9816500', s77:true, s6:true }), L12('B', [5,9,15,25,34,38], 0));
+      changed = true;
+    }
+    if (!w12.tickets.some(t => t.game === 'ej')) {
+      w12.tickets.push(
+        E12('C', [4,8,11,25,50], [11,12]), E12('C', [4,12,15,28,43], [1,4]),  E12('C', [3,4,5,11,22], [1,3]),    E12('C', [5,6,27,42,45], [7,11]),
+        E12('A', [7,19,28,41,46], [2,10]), E12('A', [12,23,30,38,49], [5,11]), E12('A', [4,16,27,35,44], [1,8]),  E12('A', [9,21,33,42,50], [6,12]),
+        E12('G', [5,12,23,37,44], [3,9]),  E12('G', [8,16,29,34,49], [2,7]),
+        E12('X', [3,10,26,33,49], [5,7]),  E12('X', [1,19,28,36,42], [3,11]), E12('X', [5,14,23,37,46], [2,8]),  E12('X', [1,17,28,39,50], [4,11]), E12('X', [8,19,31,42,48], [6,10]), E12('X', [3,16,27,34,45], [3,12]),
+        E12('B', [15,21,28,47,49], [2,5]), E12('B', [6,11,13,40,45], [8,12]), E12('B', [12,16,19,32,45], [5,8]), E12('B', [5,7,19,29,40], [9,12]),  E12('B', [2,20,32,43,47], [4,5]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['C','2718281'], ['A','7294053'], ['G','8306291'], ['X','2518047'], ['B','1025453']]) {
+      if (!w12.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w12.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
       }
     }
@@ -1274,7 +1317,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 27;
+const APP_VERSION = 28;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
