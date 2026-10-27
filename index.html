@@ -212,7 +212,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 12; // week 12 seed (18.10.2026)
+const SEED_VERSION = 13; // week 13 seed (27.10.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -693,6 +693,48 @@ const SEED_VERSION = 12; // week 12 seed (18.10.2026)
     for (const [p, losnr] of [['C','2718281'], ['A','7294053'], ['G','8306291'], ['X','2518047'], ['B','1025453']]) {
       if (!w12.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
         w12.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
+    }
+  }
+  // --- Week 13 (Spielwoche ab Mo 26.10.2026), v29 — from the 14 Lotto24 Spielquittungen of
+  // 27.10.2026 15:47 (one order, Zwischensumme 121,80 €). Assignment follows the order
+  // confirmation, which lists the Scheine in buying order: Claude, Astra, Gemini, Grok, Bernd
+  // (the order Bernd stated; the first block matches Claude's picks exactly). Gemini has NO
+  // Eurojackpot Schein this week; EJ rows: Claude 4, Astra 3, Grok 3, Bernd 3. Per player:
+  // 6aus49 Mi 28.10. (2 Felder, Losnr with Spiel 77 + Super 6), Eurojackpot Di 27.10. and one
+  // Glücksspirale Los Sa 31.10. with Spiel 77 + Super 6. Stake 121,80 €
+  // (27,60 + 25,40 + 18,00 + 25,40 + 25,40).
+  {
+    const L13 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E13 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w13 = state.weeks.find(w => w.start === '2026-10-26');
+    if (!w13) {
+      w13 = { id:uid(), start:'2026-10-26', stake:121.80, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w13); changed = true;
+    }
+    if (!w13.tickets.some(t => t.game === 'lotto')) {
+      w13.tickets.push(
+        Object.assign(L13('C', [9,14,30,40,45,47], 2),  { losnr:'2665142', s77:true, s6:true }), L13('C', [2,31,33,41,45,46], 2),
+        Object.assign(L13('A', [6,17,25,32,39,48], 8),  { losnr:'6073148', s77:true, s6:true }), L13('A', [11,20,28,36,43,47], 8),
+        Object.assign(L13('G', [4,13,21,29,38,44], 6),  { losnr:'5260746', s77:true, s6:true }), L13('G', [7,15,24,31,42,48], 6),
+        Object.assign(L13('X', [12,20,21,25,27,28], 4), { losnr:'5622264', s77:true, s6:true }), L13('X', [9,16,26,29,32,36], 4),
+        Object.assign(L13('B', [11,20,24,39,41,44], 4), { losnr:'5990524', s77:true, s6:true }), L13('B', [1,15,27,30,38,39], 4));
+      changed = true;
+    }
+    if (!w13.tickets.some(t => t.game === 'ej')) {
+      w13.tickets.push(
+        E13('C', [8,24,31,42,50], [5,8]),  E13('C', [9,17,19,42,45], [2,10]), E13('C', [5,14,17,24,36], [7,10]), E13('C', [11,16,26,32,50], [6,11]),
+        E13('A', [3,18,26,37,45], [4,9]),  E13('A', [10,22,31,42,50], [2,7]), E13('A', [8,15,29,34,47], [6,12]),
+        E13('X', [5,14,27,36,49], [3,9]),  E13('X', [1,14,36,37,39], [6,9]),  E13('X', [14,18,23,25,50], [2,4]),
+        E13('B', [5,11,19,28,31], [4,9]),  E13('B', [22,27,37,43,47], [5,9]), E13('B', [21,27,30,35,46], [3,8]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['C','2645751'], ['A','6849207'], ['G','3849271'], ['X','7479445'], ['B','2667331']]) {
+      if (!w13.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w13.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
       }
     }
@@ -1317,7 +1359,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 28;
+const APP_VERSION = 29;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
