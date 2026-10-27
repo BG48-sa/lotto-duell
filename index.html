@@ -212,7 +212,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 13; // week 13 seed (27.10.2026)
+const SEED_VERSION = 14; // week 13 correction: Gemini EJ (27.10.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -700,8 +700,9 @@ const SEED_VERSION = 13; // week 13 seed (27.10.2026)
   // --- Week 13 (Spielwoche ab Mo 26.10.2026), v29 — from the 14 Lotto24 Spielquittungen of
   // 27.10.2026 15:47 (one order, Zwischensumme 121,80 €). Assignment follows the order
   // confirmation, which lists the Scheine in buying order: Claude, Astra, Gemini, Grok, Bernd
-  // (the order Bernd stated; the first block matches Claude's picks exactly). Gemini has NO
-  // Eurojackpot Schein this week; EJ rows: Claude 4, Astra 3, Grok 3, Bernd 3. Per player:
+  // (the order Bernd stated; the first block matches Claude's picks exactly). Gemini's
+  // Eurojackpot Schein came in a separate order at 16:02 — see the v30 correction below.
+  // EJ rows: Claude 4, Astra 3, Grok 3, Bernd 3 (+ Gemini 3 via v30). Per player:
   // 6aus49 Mi 28.10. (2 Felder, Losnr with Spiel 77 + Super 6), Eurojackpot Di 27.10. and one
   // Glücksspirale Los Sa 31.10. with Spiel 77 + Super 6. Stake 121,80 €
   // (27,60 + 25,40 + 18,00 + 25,40 + 25,40).
@@ -737,6 +738,18 @@ const SEED_VERSION = 13; // week 13 seed (27.10.2026)
         w13.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
       }
+    }
+  }
+  // --- Week 13 correction, v30 (27.10.2026 16:02): Gemini's Eurojackpot Schein was ordered
+  // separately after the main order — Losnr 7051521, 3 Reihen, Di 27.10., 7,40 €. Stake rises
+  // from 121,80 € to 129,20 € (Gemini 25,40 €). Runs after the week-13 seed, so the week exists.
+  {
+    const w13 = state.weeks.find(w => w.start === '2026-10-26');
+    if (w13 && !w13.tickets.some(t => t.game === 'ej' && t.player === 'G')) {
+      const E13g = (nums, euros) => ({ id:uid(), game:'ej', player:'G', nums, euros, draws:'di' });
+      w13.tickets.push(E13g([5,14,27,36,49], [3,9]), E13g([8,19,23,41,45], [2,11]), E13g([11,12,21,30,31], [3,4]));
+      if (Math.abs(w13.stake - 121.80) < 0.005) w13.stake = 129.20;
+      changed = true;
     }
   }
   if (state.seedVersion !== SEED_VERSION) { state.seedVersion = SEED_VERSION; changed = true; }
@@ -1359,7 +1372,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 29;
+const APP_VERSION = 30;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
