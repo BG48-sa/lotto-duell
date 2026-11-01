@@ -212,7 +212,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 14; // week 13 correction: Gemini EJ (27.10.2026)
+const SEED_VERSION = 15; // week 14 seed (1.11.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -750,6 +750,57 @@ const SEED_VERSION = 14; // week 13 correction: Gemini EJ (27.10.2026)
       w13.tickets.push(E13g([5,14,27,36,49], [3,9]), E13g([8,19,23,41,45], [2,11]), E13g([11,12,21,30,31], [3,4]));
       if (Math.abs(w13.stake - 121.80) < 0.005) w13.stake = 129.20;
       changed = true;
+    }
+  }
+  // --- Week 14 (Spielwoche ab Mo 2.11.2026), v31 — from the 11 Lotto24 Spielquittungen of
+  // 1.11.2026 12:20 (one order, Zwischensumme 118,45 €). Assignment follows the order
+  // confirmation (Scheine in buying order) and Bernd's stated order: Claude, ChatGPT/Astra,
+  // Gemini, Bernd. Claude has only Eurojackpot + Glücksspirale this week (no Lotto Schein);
+  // Grok has no Scheine at all and sits out. Lotto Scheine have 6 Felder (Mi), EJ 4 Reihen (Di),
+  // one GS Los each with Spiel 77 + Super 6. Stake 118,45 € (20,05 + 32,80 + 32,80 + 32,80).
+  {
+    const L14 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E14 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w14 = state.weeks.find(w => w.start === '2026-11-02');
+    if (!w14) {
+      w14 = { id:uid(), start:'2026-11-02', stake:118.45, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w14); changed = true;
+    }
+    if (!w14.tickets.some(t => t.game === 'lotto')) {
+      w14.tickets.push(
+        // Astra — Losnr 7473694, SZ 4
+        Object.assign(L14('A', [3,11,19,26,38,43], 4), { losnr:'7473694', s77:true, s6:true }),
+        L14('A', [6,14,22,31,42,49], 4), L14('A', [9,15,25,32,39,47], 4), L14('A', [4,10,27,33,41,48], 4),
+        L14('A', [7,12,23,29,36,44], 4), L14('A', [2,8,24,35,40,46], 4),
+        // Gemini — Losnr 5164277, SZ 7
+        Object.assign(L14('G', [3,4,19,27,34,39], 7), { losnr:'5164277', s77:true, s6:true }),
+        L14('G', [3,7,12,17,27,31], 7), L14('G', [11,24,26,38,39,41], 7), L14('G', [3,6,11,17,20,21], 7),
+        L14('G', [4,13,18,38,40,41], 7), L14('G', [6,10,14,25,28,32], 7),
+        // Bernd — Losnr 3411756, SZ 6
+        Object.assign(L14('B', [3,6,11,26,32,49], 6), { losnr:'3411756', s77:true, s6:true }),
+        L14('B', [7,19,22,31,33,43], 6), L14('B', [1,11,25,32,38,49], 6), L14('B', [5,6,9,26,33,41], 6),
+        L14('B', [3,7,22,31,38,49], 6), L14('B', [11,19,25,32,42,49], 6));
+      changed = true;
+    }
+    if (!w14.tickets.some(t => t.game === 'ej')) {
+      w14.tickets.push(
+        // Claude — Losnr 9444782
+        E14('C', [7,18,26,39,48], [3,10]),  E14('C', [4,15,29,37,50], [6,11]),  E14('C', [9,21,32,41,46], [2,8]),   E14('C', [12,23,30,43,49], [5,12]),
+        // Astra — Losnr 0115467
+        E14('A', [6,15,20,34,49], [3,8]),   E14('A', [9,19,25,35,48], [4,9]),   E14('A', [3,11,21,38,46], [2,10]),  E14('A', [7,16,29,40,50], [5,11]),
+        // Gemini — Losnr 4263591
+        E14('G', [18,21,27,28,46], [3,11]), E14('G', [7,12,13,20,38], [3,11]),  E14('G', [18,29,36,48,50], [7,8]),  E14('G', [22,23,35,46,50], [8,12]),
+        // Bernd — Losnr 3415859
+        E14('B', [11,17,20,34,35], [3,5]),  E14('B', [16,18,21,23,30], [5,8]),  E14('B', [3,7,11,21,30], [4,5]),    E14('B', [17,20,23,35,44], [5,8]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['C','5831947'], ['A','4829174'], ['G','3737269'], ['B','1426117']]) {
+      if (!w14.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w14.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
     }
   }
   if (state.seedVersion !== SEED_VERSION) { state.seedVersion = SEED_VERSION; changed = true; }
@@ -1372,7 +1423,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
