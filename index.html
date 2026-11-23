@@ -212,7 +212,7 @@ let state = load();
 // marks the newest seed block: a save that has already seen it is left untouched, so
 // manual edits stay authoritative — but a newer seed (e.g. the next Spielwoche) is
 // applied once on every install, including the phone. Bump it when adding a seed block.
-const SEED_VERSION = 15; // week 14 seed (1.11.2026)
+const SEED_VERSION = 16; // week 17 seed (23.11.2026)
 (function migrate() {
   let changed = false;
   for (const w of state.weeks) {
@@ -799,6 +799,53 @@ const SEED_VERSION = 15; // week 14 seed (1.11.2026)
     for (const [p, losnr] of [['C','5831947'], ['A','4829174'], ['G','3737269'], ['B','1426117']]) {
       if (!w14.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
         w14.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
+        changed = true;
+      }
+    }
+  }
+  // --- Week 17 (Spielwoche ab Mo 23.11.2026), v32 — from the 9 Lotto24 Spielquittungen of
+  // 23.11.2026 22:28 (one order, Zwischensumme 93,20 €). Weeks 15 (9.11.) and 16 (16.11.) were
+  // skipped (no order). Bernd's stated buying order: Claude, ChatGPT/Astra, Grok — Gemini and
+  // Bernd sit this week out. Lotto Mi 25.11. (Claude 6 Felder, Astra/Grok 4), EJ Di 24.11.
+  // (4 Reihen each), one GS Los Sa 28.11. each, all with Spiel 77 + Super 6.
+  // Stake 93,20 € (Claude 32,80, Astra 30,20, Grok 30,20).
+  {
+    const L17 = (p, nums, sz) => ({ id:uid(), game:'lotto', player:p, nums, sz, draws:'mi', losnr:'', s77:false, s6:false });
+    const E17 = (p, nums, euros) => ({ id:uid(), game:'ej', player:p, nums, euros, draws:'di' });
+    let w17 = state.weeks.find(w => w.start === '2026-11-23');
+    if (!w17) {
+      w17 = { id:uid(), start:'2026-11-23', stake:93.20, tickets:[],
+        results:{ sa49:{nums:[],sz:null}, mi49:{nums:[],sz:null}, s77sa:'', s6sa:'', s77mi:'', s6mi:'', gs:{k1:'',k2:'',k3:'',k4:'',k5:'',k6a:'',k6b:'',k7a:'',k7b:''}, ej:{nums:[],euros:[]}, ejdi:{nums:[],euros:[]} },
+        overrides:{} };
+      state.weeks.push(w17); changed = true;
+    }
+    if (!w17.tickets.some(t => t.game === 'lotto')) {
+      w17.tickets.push(
+        // Claude — Losnr 4565868, SZ 8
+        Object.assign(L17('C', [2,3,4,10,23,48], 8), { losnr:'4565868', s77:true, s6:true }),
+        L17('C', [3,5,7,38,45,47], 8), L17('C', [7,9,13,24,29,37], 8), L17('C', [6,7,12,26,39,46], 8),
+        L17('C', [7,16,19,21,31,39], 8), L17('C', [9,15,23,30,36,46], 8),
+        // Astra — Losnr 0943555, SZ 5
+        Object.assign(L17('A', [4,13,22,31,37,46], 5), { losnr:'0943555', s77:true, s6:true }),
+        L17('A', [7,16,24,33,41,49], 5), L17('A', [2,18,27,34,38,45], 5), L17('A', [9,14,23,29,36,43], 5),
+        // Grok — Losnr 6242751, SZ 1
+        Object.assign(L17('X', [5,10,19,20,37,45], 1), { losnr:'6242751', s77:true, s6:true }),
+        L17('X', [1,18,23,25,32,35], 1), L17('X', [8,24,29,32,46,49], 1), L17('X', [1,5,18,24,35,45], 1));
+      changed = true;
+    }
+    if (!w17.tickets.some(t => t.game === 'ej')) {
+      w17.tickets.push(
+        // Claude — Losnr 0014087
+        E17('C', [6,12,28,29,36], [2,9]),   E17('C', [5,18,42,46,47], [9,10]),  E17('C', [5,20,32,33,44], [3,12]),  E17('C', [3,9,15,40,49], [2,6]),
+        // Astra — Losnr 6591905
+        E17('A', [8,17,29,36,47], [3,11]),  E17('A', [5,21,32,41,49], [2,9]),   E17('A', [3,14,26,35,50], [5,12]),  E17('A', [9,23,31,42,46], [1,10]),
+        // Grok — Losnr 4485874
+        E17('X', [9,14,28,31,48], [4,12]),  E17('X', [21,37,39,42,50], [5,12]), E17('X', [6,14,18,21,36], [6,9]),   E17('X', [10,13,17,38,42], [9,12]));
+      changed = true;
+    }
+    for (const [p, losnr] of [['C','4643624'], ['A','7294168'], ['X','4273044']]) {
+      if (!w17.tickets.some(t => t.game === 'gs' && t.losnr === losnr)) {
+        w17.tickets.push({ id:uid(), game:'gs', player:p, losnr, share:1, s77:true, s6:true });
         changed = true;
       }
     }
@@ -1423,7 +1470,7 @@ async function fetchResults(manual) {
 }
 
 // self-update: when a newer app version is published, clear caches and reload once
-const APP_VERSION = 31;
+const APP_VERSION = 32;
 async function checkUpdate() {
   try {
     const v = (await (await fetch('version.json?t=' + Date.now(), { cache:'no-store' })).json()).v;
